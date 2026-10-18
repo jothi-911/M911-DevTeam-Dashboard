@@ -1,0 +1,17 @@
+# Netlify (free plan): static app from /public, API as a Netlify Function.
+[build]
+  publish = "public"
+  command = "npm ci --omit=dev || npm install --omit=dev"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["pg-native"]
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "same-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000"

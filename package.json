@@ -1,0 +1,17 @@
+{
+  "name": "officedesk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Metaverse911 OfficeDesk – projects, people, pipeline, finance and payroll",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "backup": "node scripts/backup.js",
+    "test": "node tests/api.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "2.4.3",
+    "pg": "8.13.1"
+  }
+}
