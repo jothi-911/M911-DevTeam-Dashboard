@@ -1,0 +1,6 @@
+node_modules/
+backups/
+.env
+tests/prototype-backup.json
+*.log
+.netlify/

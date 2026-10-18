@@ -1,0 +1,33 @@
+# One-command setup on an OVH VPS: app + PostgreSQL + nightly database dump.
+# 1) copy .env.example to .env and fill SESSION_SECRET, SETUP_KEY, POSTGRES_PASSWORD
+# 2) docker compose up -d
+# 3) put a reverse proxy with HTTPS in front (Caddy example in README)
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: officedesk
+      POSTGRES_USER: officedesk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on: [ db ]
+    environment:
+      DATABASE_URL: postgresql://officedesk:${POSTGRES_PASSWORD}@db:5432/officedesk
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      SETUP_KEY: ${SETUP_KEY:-}
+      PORT: 3000
+    ports: [ "127.0.0.1:3000:3000" ]
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on: [ db ]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [ "./backups:/backups" ]
+    entrypoint: [ "sh", "-c", "while true; do pg_dump -h db -U officedesk officedesk | gzip > /backups/officedesk-$$(date +%F).sql.gz; find /backups -name '*.sql.gz' -mtime +30 -delete; sleep 86400; done" ]
+volumes:
+  pgdata:
