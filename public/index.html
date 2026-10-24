@@ -472,6 +472,28 @@ code{font-family:var(--f-mono);background:var(--sunken);padding:1px 6px;border-r
 .fbar{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--muted);box-shadow:var(--shadow)}
 .fbar b{color:var(--warn)}
 @media (max-width:1000px){.ftabs{grid-template-columns:1fr}}
+/* ---------- timesheet ---------- */
+.ts-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:4px 0 14px}
+.ts-dayb{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-sm);padding:7px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.ts-dayb b{font-size:12.5px;white-space:nowrap}.ts-dayb small{font-size:11.5px;color:var(--muted);font-family:var(--f-mono)}
+.ts-dayb.on{border-color:var(--accent);box-shadow:var(--glow)}
+.ts-dayb.st-done{background:var(--good-soft)}.ts-dayb.st-done small{color:var(--good)}
+.ts-dayb.st-part{background:var(--warn-soft)}.ts-dayb.st-part small{color:var(--warn)}
+.ts-dayb.st-missing{background:var(--bad-soft)}.ts-dayb.st-missing small{color:var(--bad);font-weight:600}
+.ts-dayb.st-leave,.ts-dayb.st-holiday{background:var(--info-soft)}
+.ts-sum{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin-bottom:12px;font-size:13.5px}.ts-sum b{font-family:var(--f-mono);font-size:18px}
+.ts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:14px}
+.ts-slot{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line-strong);border-radius:var(--r);padding:14px 16px}
+.ts-slot.done{border-left-color:var(--good)}
+.ts-sh{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}.ts-sh b{font-family:var(--f-display);font-size:15px;display:block}.ts-sh small{color:var(--muted);font-size:12px}
+.ts-line{display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px dashed var(--line)}.ts-line:first-of-type{border-top:0;padding-top:0}
+.ts-lh{display:flex;align-items:center;gap:6px;min-width:0}.ts-lh .ts-p{flex:1 1 auto}.ts-lh .ts-h{flex:0 0 92px}
+.ts-line.ro p{white-space:pre-wrap;font-size:13.5px}
+.ts-w{resize:vertical;min-height:58px}
+.ts-cell{border:0;border-radius:6px;padding:5px 8px;min-width:58px;cursor:pointer;background:var(--sunken);color:var(--muted);font-family:var(--f-mono);font-size:12px}
+.ts-cell.st-done{background:var(--good-soft);color:var(--good)}.ts-cell.st-part{background:var(--warn-soft);color:var(--warn)}.ts-cell.st-missing{background:var(--bad-soft);color:var(--bad);font-weight:600}.ts-cell.st-leave,.ts-cell.st-holiday{background:var(--info-soft);color:var(--info)}
+.ts-mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(54px,1fr));gap:6px}.ts-mini span{text-align:center;padding:6px 2px;border-radius:6px;background:var(--sunken);color:var(--muted);font-size:12px;font-family:var(--f-mono)}.ts-mini span.on{background:var(--good-soft);color:var(--good);font-weight:600}
+@media (max-width:640px){.ts-week{grid-template-columns:repeat(4,minmax(0,1fr))}.ts-slot{padding:12px}}
 .topline{display:flex;justify-content:flex-end;margin-bottom:-8px}
 .sync{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
 .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good)}
@@ -533,6 +555,7 @@ function weekdays(from,to){let n=0;for(let d=from;d<=to;d=addDays(d,1)){const w=
 
 const I={
  dashboard:'<path d="M3 3h7v8H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 15h7v6H3z"/>',
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
  reports:'<path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/>',
  projects:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
  tasks:'<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
@@ -595,7 +618,7 @@ function visibleTasksAll(){const u=U();if(u.role==='admin')return DB.tasks;if(u.
 function canEditTask(t){const u=U();if(u.role==='admin')return true;if(t.assignee===u.id)return true;if(u.role==='manager'){const p=t.projectId&&proj(t.projectId);if(p&&p.managerId===u.id)return true;const a=emp(t.assignee);return a&&a.managerId===u.id;}return false;}
 const canManage=()=>['admin','manager'].includes(U().role);
 const isOverdue=t=>t.status!=='Done'&&t.due<TODAY;
-const logged=tid=>sum(DB.logs.filter(l=>l.t===tid),l=>l.h);
+const logged=tid=>sum(timeRows().filter(l=>l.t===tid),l=>l.h);
 function progress(p){if(p.status==='Completed')return 100;const ts=DB.tasks.filter(t=>t.projectId===p.id);if(!ts.length)return 0;return Math.round(ts.filter(t=>t.status==='Done').length/ts.length*100);}
 function health(p){if(p.status==='Completed')return['Completed','muted'];if(p.status==='On hold')return['On hold','warn'];if(p.status==='Planning')return['Planning','info'];const od=DB.tasks.filter(t=>t.projectId===p.id&&isOverdue(t)).length;if(p.end<TODAY||od>=2)return['At risk','bad'];if(od===1)return['Watch','warn'];return['On track','good'];}
 const statusTone={'To do':'','In progress':'info','Review':'warn','Done':'good','Planning':'info','Active':'accent','On hold':'warn','Completed':'','Pending':'warn','Approved':'good','Rejected':'bad','Paid':'good','Part paid':'info','Overdue':'bad','Due soon':'warn','Upcoming':'','Draft':'warn','Active ':'good','Notice period':'warn','Exited':''};
@@ -709,11 +732,11 @@ function renderInner(){
 function navFor(u){
   if(u.role==='admin')return[
     ['Overview',[['dashboard','Dashboard','dashboard'],['reports','Team reports','reports']]],
-    ['Work',[['projects','Projects','projects'],['tasks','Tasks','tasks'],['timeline','Timeline','timeline'],['events','Events','events']]],
+    ['Work',[['projects','Projects','projects'],['tasks','Tasks','tasks'],['timesheet','Timesheet','clock'],['timeline','Timeline','timeline'],['events','Events','events']]],
     ['People',[['employees','Employees','employees'],['roles','Roles & JDs','roles'],['leave','Leave','leave']]],
     ['Money',[['pipeline','Client pipeline','pipeline'],['forecast','Revenue forecast','reports'],['estimates','Cost estimates','calc'],['finance','Finance','finance'],['payroll','Payroll','payroll']]],
     ['Setup',[['settings','Settings','settings']]]];
-  const g=[['Work',[['dashboard',u.role==='employee'?'My work':'Dashboard','dashboard'],['tasks',u.role==='manager'?'Tasks':'My tasks','tasks'],['projects','Projects','projects'],['timeline','Timeline','timeline'],['events','Events','events']]]];
+  const g=[['Work',[['dashboard',u.role==='employee'?'My work':'Dashboard','dashboard'],['tasks',u.role==='manager'?'Tasks':'My tasks','tasks'],['timesheet','Timesheet','clock'],['projects','Projects','projects'],['timeline','Timeline','timeline'],['events','Events','events']]]];
   if(u.role==='manager')g.push(['Team',[['reports','Team reports','reports'],['leave','Leave','leave']]]);
   g.push(['Me',[...(u.role!=='manager'?[['leave','Leave','leave']]:[]),['payslips','My payslips','payroll'],['profile','My profile','profile']]]);
   return g;
@@ -758,7 +781,7 @@ function pgDashboard(){
   const projs=visibleProjects();const active=projs.filter(p=>p.status==='Active'),planning=projs.filter(p=>p.status==='Planning');
   const tasks=visibleTasks();const open=tasks.filter(t=>t.status!=='Done');const od=open.filter(isOverdue);
   const team=scopeEmployees();const wk=weekRange(LASTWORK);
-  const wkLogs=DB.logs.filter(l=>l.d>=wk.from&&l.d<=wk.to&&team.some(e=>e.id===l.e));
+  const wkLogs=timeRows().filter(l=>l.d>=wk.from&&l.d<=wk.to&&team.some(e=>e.id===l.e));
   const mk=TODAY.slice(0,7);
   const ods=allItems().filter(({s})=>istatus(s)==='Overdue');
   const dueMonth=allItems().filter(({s})=>s.due.slice(0,7)===mk);
@@ -770,6 +793,7 @@ function pgDashboard(){
   let attention=admin?DB.projects.filter(p=>!p.archived&&p.status!=='Completed'&&!p.team.length).map(p=>`<div class="li"><div class="grow"><b>${esc(p.name)} – no team assigned</b><small>Only you and its manager can see it until you assign people.</small></div><button class="btn sm pri" data-act="editProject" data-id="${p.id}">Assign team</button></div>`).join(''):'';
   attention+=od.slice(0,5).map(t=>`<div class="li"><div class="grow"><b>${esc(t.title)}</b><small>${esc(emp(t.assignee)?.name)} · due ${fmtDs(t.due)} · <span class="tag-bad">${diffDays(TODAY,t.due)} days late</span></small></div><button class="btn sm" data-act="openTask" data-id="${t.id}">Open</button></div>`).join('');
   attention+=pendL.map(l=>`<div class="li"><div class="grow"><b>${esc(emp(l.emp).name)} – ${LTYPES[l.type]}</b><small>${fmtDs(l.from)}${l.to!==l.from?' – '+fmtDs(l.to):''} · ${l.days} day${l.days>1?'s':''} · ${esc(l.reason)}</small></div><button class="btn sm" data-act="leaveDecide" data-id="${l.id}" data-val="Approved">Approve</button><button class="btn sm" data-act="leaveDecide" data-id="${l.id}" data-val="Rejected">Reject</button></div>`).join('');
+  attention+=tsMissingAttention();
   if(admin)attention+=ods.sort((a,b)=>a.s.due.localeCompare(b.s.due)).slice(0,3).map(({s,p})=>`<div class="li"><div class="grow"><b>${esc(client(p.clientId).name)} · ${inr(bal(s))}</b><small>${esc(s.label)} · ${diffDays(TODAY,s.due)} days overdue</small></div><button class="btn sm" data-act="nav" data-to="finance" data-key="fin" data-val="overdue">View</button></div>`).join('');
   const teamRows=team.filter(e=>e.id!==u.id||u.role!=='admin').map(e=>{const done=DB.tasks.filter(t=>t.assignee===e.id&&t.completedOn&&t.completedOn>=wk.from&&t.completedOn<=wk.to).length;const h=sum(wkLogs.filter(l=>l.e===e.id),l=>l.h);const o=DB.tasks.filter(t=>t.assignee===e.id&&isOverdue(t)).length;return[person(e,esc(desig(e.designationId)?.title)),`<span class="num">${done}</span>`,`<span class="num">${hrs(h)}</span>`,o?`<span class="num tag-bad">${o}</span>`:'<span class="num">0</span>'];});
   const months=PAYMONTHS;
@@ -788,7 +812,7 @@ function feedHtml(list){if(!list.length)return '<div class="empty">No updates ye
 function pgMyWork(){
   const u=U();const mine=DB.tasks.filter(t=>t.assignee===u.id);const open=mine.filter(t=>t.status!=='Done');const od=open.filter(isOverdue);
   const soon=open.filter(t=>t.due>=TODAY&&t.due<=addDays(TODAY,7));const wk=weekRange(LASTWORK);
-  const h=sum(DB.logs.filter(l=>l.e===u.id&&l.d>=wk.from&&l.d<=wk.to),l=>l.h);
+  const h=sum(timeRows().filter(l=>l.e===u.id&&l.d>=wk.from&&l.d<=wk.to),l=>l.h);
   const myP=visibleProjects().filter(p=>p.status!=='Completed');
   const list=open.sort((a,b)=>a.due.localeCompare(b.due)).map(t=>{const p=t.projectId&&proj(t.projectId);return `<div class="li"><div class="grow"><button class="linkbtn" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button><small>${p?esc(p.name):'Internal'} · <span class="${isOverdue(t)?'tag-bad':''}">due ${fmtDs(t.due)}</span>${t.subtasks.length?` · ${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} subtasks`:''}</small></div><select class="mini" data-chg="taskStatus" data-id="${t.id}" aria-label="Status">${opts(STATUSES,t.status)}</select></div>`;}).join('');
   const pRows=myP.map(p=>`<div class="li"><div class="grow"><button class="linkbtn" data-act="nav" data-to="project" data-id="${p.id}">${esc(p.name)}</button><small>${esc(client(p.clientId)?.name)} · ends ${fmtDs(p.end)}</small></div><div style="width:130px">${progRow(progress(p))}</div></div>`).join('');
@@ -798,7 +822,7 @@ function pgMyWork(){
   `<div class="kpis">${kpi('Open tasks',open.length)}${kpi('Due in 7 days',soon.length)}${kpi('Overdue',od.length,'',od.length?'bad':'good')}${kpi('Hours this week',hrs(h),`${fmtDs(wk.from)} – ${fmtDs(wk.to)}`)}</div>
   <div class="grid2"><div class="stack">${panel('My open tasks',list?`<div class="list">${list}</div>`:'<div class="empty">No open tasks.</div>',{flush:true,actions:`<button class="btn sm" data-act="nav" data-to="tasks">Board</button>`})}
   ${panel('My timeline',gantt(gItems,addDays(TODAY,-21),addDays(TODAY,35)),{flush:true})}</div>
-  <div class="stack">${panel('Post a daily update',`<form data-form="update" class="stack" style="gap:10px">${sel('Project','project',myP.map(p=>[p.id,p.name]),myP[0]?.id)}${area('What did you finish, and what is next?','text','','required placeholder="Finished the filters. Product page next; need final images from the client."')}<div><button class="btn pri" type="submit">Post update</button></div></form>`)}
+  <div class="stack">${tsTodayPanel()}${panel('Post a daily update',`<form data-form="update" class="stack" style="gap:10px">${sel('Project','project',myP.map(p=>[p.id,p.name]),myP[0]?.id)}${area('What did you finish, and what is next?','text','','required placeholder="Finished the filters. Product page next; need final images from the client."')}<div><button class="btn pri" type="submit">Post update</button></div></form>`)}
   ${upcomingEventsPanel()}
   ${panel('My projects',pRows?`<div class="list">${pRows}</div>`:'<div class="empty">Not on any project yet.</div>',{flush:true})}
   ${panel('Leave balance',`<dl class="dl"><dt>Casual leave</dt><dd class="num">${lv.cl} days</dd><dt>Sick leave</dt><dd class="num">${lv.sl} days</dd><dt>Earned leave</dt><dd class="num">${lv.el} days</dd></dl>`,{actions:`<button class="btn sm" data-act="nav" data-to="leave">Apply</button>`})}</div></div>`;
@@ -828,11 +852,11 @@ function pgProject(){
   const p=proj(S.id);if(!p||!(visibleProjects().includes(p)||(isAdmin()&&p.archived)))return pageHead('Project not found','',``,backBtn('projects','Projects'));
   const tab=S.ui.ptab||'overview';const fin=canFinance();const manage=isAdmin()||p.managerId===U().id;
   const ts=DB.tasks.filter(t=>t.projectId===p.id);const [h,ht]=health(p);const pf=projFin(p);
-  const tl=[['overview','Overview'],['tasks',`Tasks (${ts.length})`],['timeline','Timeline'],['updates','Updates'],['team','Team']];if(fin)tl.push(['finance','Finance']);
+  const tl=[['overview','Overview'],['tasks',`Tasks (${ts.length})`],['timeline','Timeline'],['time','Time spent'],['updates','Updates'],['team','Team']];if(fin)tl.push(['finance','Finance']);
   let body='';
   if(tab==='overview'){
     const ms=p.milestones.slice().sort((a,b)=>a.due.localeCompare(b.due)).map(m=>`<label class="check ${m.done?'done':''}"><input type="checkbox" ${m.done?'checked':''} ${manage?'':'disabled'} data-chg="milestone" data-pid="${p.id}" data-id="${m.id}"><span>${esc(m.name)}</span><small class="muted" style="margin-left:auto">${fmtD(m.due)}</small></label>`).join('');
-    body=`<div class="kpis">${kpi('Progress',progress(p)+'%',`${ts.filter(t=>t.status==='Done').length} of ${ts.length} tasks done`)}${kpi('Overdue tasks',ts.filter(isOverdue).length,'',ts.filter(isOverdue).length?'bad':'good')}${kpi('Days left',Math.max(0,diffDays(p.end,TODAY)),`ends ${fmtD(p.end)}`)}${fin?kpi('Collected',shortInr(pf.coll),`of ${shortInr(pf.total)} · ${shortInr(pf.od)} overdue`,pf.od?'warn':''):kpi('Hours logged',hrs(sum(DB.logs.filter(l=>ts.some(t=>t.id===l.t)),l=>l.h)))}</div>
+    body=`<div class="kpis">${kpi('Progress',progress(p)+'%',`${ts.filter(t=>t.status==='Done').length} of ${ts.length} tasks done`)}${kpi('Overdue tasks',ts.filter(isOverdue).length,'',ts.filter(isOverdue).length?'bad':'good')}${kpi('Days left',Math.max(0,diffDays(p.end,TODAY)),`ends ${fmtD(p.end)}`)}${fin?kpi('Collected',shortInr(pf.coll),`of ${shortInr(pf.total)} · ${shortInr(pf.od)} overdue`,pf.od?'warn':''):kpi('Hours logged',hrs(sum(timeRows().filter(l=>l.p===p.id),l=>l.h)))}</div>
     <div class="grid2">${panel('About this project',`<p>${esc(p.description)}</p><dl class="dl" style="margin-top:14px"><dt>Client</dt><dd>${esc(client(p.clientId)?.name)} · ${esc(client(p.clientId)?.contact)}</dd><dt>Project manager</dt><dd>${esc(emp(p.managerId)?.name)}</dd><dt>Dates</dt><dd>${fmtD(p.start)} – ${fmtD(p.end)}</dd><dt>Priority</dt><dd>${esc(p.priority)}</dd>${p.eventId&&evById(p.eventId)?`<dt>Event</dt><dd><button class="linkbtn" data-act="viewEvent" data-id="${p.eventId}">${esc(evById(p.eventId).name)}</button> · ${evDateText(evById(p.eventId))}</dd>`:''}</dl>`)}
     ${panel('Milestones',(ms||'<div class="empty">No milestones yet.</div>')+(manage?`<form data-form="milestone" data-pid="${p.id}" class="inline-form" style="margin-top:10px"><input class="inp" name="name" id="ms-name" placeholder="New milestone" required><input class="inp" type="date" name="due" id="ms-due" required style="flex:0 0 150px"><button class="btn sm" type="submit">Add</button></form>`:''))}</div>`;
   }else if(tab==='tasks'){body=`<div class="toolbar" style="justify-content:space-between"><span class="note">Done column shows everything finished on this project.</span>${canManage()?`<button class="btn pri sm" data-act="newTask" data-pid="${p.id}">${ico('plus')}Add task</button>`:''}</div>`+kanban(ts,true);}
@@ -842,7 +866,8 @@ function pgProject(){
   else if(tab==='updates'){const list=DB.updates.filter(x=>x.project===p.id).sort((a,b)=>b.date.localeCompare(a.date));const onTeam=p.team.includes(U().id)||manage;
     body=`<div class="grid2">${panel('Updates',feedHtml(list),{flush:true})}${onTeam?panel('Post an update',`<form data-form="update" class="stack" style="gap:10px"><input type="hidden" name="project" value="${p.id}">${area('Update','text','','required')}<div><button class="btn pri" type="submit">Post update</button></div></form>`):''}</div>`;}
   else if(tab==='team'){const mem=[p.managerId,...p.team].map(emp).filter(Boolean);const mk=TODAY.slice(0,7);
-    body=panel('People on this project',table([{h:'Person'},{h:'Role'},{h:'Open tasks',r:1},{h:'Overdue',r:1},{h:'Hours this month',r:1}],mem.map(e=>[person(e,esc(desig(e.designationId)?.title)),e.id===p.managerId?pill('Project manager','accent'):'Member',`<span class="num">${ts.filter(t=>t.assignee===e.id&&t.status!=='Done').length}</span>`,`<span class="num">${ts.filter(t=>t.assignee===e.id&&isOverdue(t)).length}</span>`,hrs(sum(DB.logs.filter(l=>l.e===e.id&&l.d.slice(0,7)===mk&&ts.some(t=>t.id===l.t)),l=>l.h))])),{flush:true});}
+    body=panel('People on this project',table([{h:'Person'},{h:'Role'},{h:'Open tasks',r:1},{h:'Overdue',r:1},{h:'Hours this month',r:1}],mem.map(e=>[person(e,esc(desig(e.designationId)?.title)),e.id===p.managerId?pill('Project manager','accent'):'Member',`<span class="num">${ts.filter(t=>t.assignee===e.id&&t.status!=='Done').length}</span>`,`<span class="num">${ts.filter(t=>t.assignee===e.id&&isOverdue(t)).length}</span>`,hrs(sum(timeRows().filter(l=>l.e===e.id&&l.d.slice(0,7)===mk&&l.p===p.id),l=>l.h))])),{flush:true});}
+  else if(tab==='time'){body=tsProjectTab(p);}
   else if(tab==='finance'&&fin){body=projFinanceTab(p);}
   return pageHead(esc(p.name),`${esc(client(p.clientId)?.name)} · <span class="mono">${p.code}</span> · ${pill(p.status)} ${pill(h,ht)}`,(manage&&!p.archived?`<label class="fld" style="flex-direction:row;align-items:center;gap:8px"><span>Status</span><select class="mini" data-chg="projStatus" data-id="${p.id}" id="pstat">${opts(PSTATUS,p.status)}</select></label>`:'')+(isAdmin()?`<button class="btn" data-act="editProject" data-id="${p.id}">Edit details</button>${p.archived?`<button class="btn" data-act="restoreProject" data-id="${p.id}">Restore</button>`:`<button class="btn" data-act="archiveProject" data-id="${p.id}">Archive</button>`}<button class="btn danger" data-act="deleteProject" data-id="${p.id}">Delete</button>`:''),backBtn('projects','Projects'))+(p.archived?`<div class="panel"><div class="li"><div class="grow"><b>This project is archived</b><small>Archived on ${fmtD(p.archivedOn)}. It is hidden from everyone’s dashboards, tasks, timeline and reports. Restore it to bring it back.</small></div><button class="btn sm pri" data-act="restoreProject" data-id="${p.id}">Restore</button></div></div>`:'')+tabs('ptab',tl,tab)+body;
 }
@@ -868,7 +893,7 @@ function pgTasks(){
 }
 function taskDrawer(id){
   const t=task(id);if(!t)return '';const ed=canEditTask(t);const p=t.projectId&&proj(t.projectId);const lg=logged(t.id);const mgr=canManage()&&ed;
-  const logs=DB.logs.filter(l=>l.t===t.id).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
+  const logs=timeRows().filter(l=>l.t===t.id).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,6);
   return `<div class="drawer" role="dialog" aria-modal="true" aria-label="Task"><div class="m-head"><div><div class="note">${p?esc(p.name)+' · '+p.code:'Internal task'}</div><h2>${esc(t.title)}</h2></div><button class="icon-btn" data-act="closeModal" aria-label="Close">×</button></div>
   <div class="m-body">
    <div class="fgrid">
@@ -883,8 +908,8 @@ function taskDrawer(id){
    ${isOverdue(t)?`<p class="tag-bad" style="font-weight:600">Overdue by ${diffDays(TODAY,t.due)} days.</p>`:''}
    <div><h3 style="font-size:14px;margin-bottom:4px">Subtasks</h3>${t.subtasks.map(s=>`<label class="check ${s.done?'done':''}"><input type="checkbox" ${s.done?'checked':''} ${ed?'':'disabled'} data-chg="subtask" data-tid="${t.id}" data-id="${s.id}"><span>${esc(s.title)}</span></label>`).join('')||'<p class="note">No subtasks.</p>'}
    ${ed?`<form class="inline-form" data-form="subtask" data-tid="${t.id}" style="margin-top:6px"><input class="inp" name="title" id="st-title" placeholder="Add a subtask" required><button class="btn sm" type="submit">Add</button></form>`:''}</div>
-   ${t.assignee===U().id?`<div><h3 style="font-size:14px;margin-bottom:6px">Log time</h3><form class="inline-form" data-form="logtime" data-tid="${t.id}"><input class="inp" type="date" name="d" id="lt-d" value="${LASTWORK}" style="flex:0 0 150px"><input class="inp" type="number" name="h" id="lt-h" min="0.5" max="12" step="0.5" placeholder="Hours" required style="flex:0 0 110px"><button class="btn sm" type="submit">Log</button></form></div>`:''}
-   ${logs.length?`<div><h3 style="font-size:14px;margin-bottom:4px">Recent time</h3>${logs.map(l=>`<div class="note">${fmtD(l.d)} · ${esc(emp(l.e)?.name)} · ${hrs(l.h)}h</div>`).join('')}</div>`:''}
+   ${t.assignee===U().id?`<div class="li" style="padding:8px 0"><div class="grow"><b>Time on this task</b><small>Comes from your timesheet – choose this task in a time slot.</small></div><button class="btn sm" data-act="tsGo" data-val="${TODAY}">Open timesheet</button></div>`:''}
+   ${logs.length?`<div><h3 style="font-size:14px;margin-bottom:4px">Recent time</h3>${logs.map(l=>`<div class="note">${fmtD(l.d)} · ${esc(emp(l.e)?.name)} · ${hrs(l.h)}h${l.w?' – '+esc(l.w):''}</div>`).join('')}</div>`:''}
    <div><h3 style="font-size:14px;margin-bottom:6px">Comments</h3>${t.comments.map(c=>`<div class="li" style="padding:8px 0">${avatar(emp(c.emp),'sm')}<div class="grow"><small>${esc(emp(c.emp)?.name)} · ${fmtDs(c.date)}</small><p>${esc(c.text)}</p></div></div>`).join('')||'<p class="note">No comments yet.</p>'}
    <form class="inline-form" data-form="comment" data-tid="${t.id}" style="margin-top:6px"><input class="inp" name="text" id="cm-text" placeholder="Write a comment" required><button class="btn sm" type="submit">Post</button></form></div>
   </div>${isAdmin()?`<div class="m-foot"><button class="btn danger sm" data-act="deleteTask" data-id="${t.id}">Delete task</button></div>`:''}</div>`;
@@ -910,11 +935,11 @@ function reportRange(){const p=S.ui.rp||'week',d=S.ui.rd||LASTWORK;
   const from=d.slice(0,7)+'-01';return{p,from,to:monthEnd(d.slice(0,7)),label:monthLabel(d.slice(0,7))};}
 function reportData(){
   const r=reportRange();const team=scopeEmployees().filter(e=>!(U().role==='admin'&&e.isOwner));const wd=Math.max(1,weekdays(r.from,r.to<LASTWORK?r.to:LASTWORK));
-  const rows=team.map(e=>{const done=DB.tasks.filter(t=>t.assignee===e.id&&t.completedOn&&t.completedOn>=r.from&&t.completedOn<=r.to);const h=sum(DB.logs.filter(l=>l.e===e.id&&l.d>=r.from&&l.d<=r.to),l=>l.h);
+  const rows=team.map(e=>{const done=DB.tasks.filter(t=>t.assignee===e.id&&t.completedOn&&t.completedOn>=r.from&&t.completedOn<=r.to);const h=sum(timeRows().filter(l=>l.e===e.id&&l.d>=r.from&&l.d<=r.to),l=>l.h);
     const prog=DB.tasks.filter(t=>t.assignee===e.id&&(t.status==='In progress'||t.status==='Review')).length;const od=DB.tasks.filter(t=>t.assignee===e.id&&isOverdue(t)).length;
     const up=DB.updates.filter(x=>x.emp===e.id&&x.date>=r.from&&x.date<=r.to).length;
     return{e,done,h,prog,od,up,util:Math.round(h/(wd*8)*100)};});
-  const projs=visibleProjects().filter(p=>p.status!=='Completed').map(p=>{const ts=DB.tasks.filter(t=>t.projectId===p.id);return{p,done:ts.filter(t=>t.completedOn&&t.completedOn>=r.from&&t.completedOn<=r.to).length,h:sum(DB.logs.filter(l=>l.d>=r.from&&l.d<=r.to&&ts.some(t=>t.id===l.t)),l=>l.h),od:ts.filter(isOverdue).length,prog:progress(p),health:health(p)};});
+  const projs=visibleProjects().filter(p=>p.status!=='Completed').map(p=>{const ts=DB.tasks.filter(t=>t.projectId===p.id);return{p,done:ts.filter(t=>t.completedOn&&t.completedOn>=r.from&&t.completedOn<=r.to).length,h:sum(timeRows().filter(l=>l.d>=r.from&&l.d<=r.to&&l.p===p.id),l=>l.h),od:ts.filter(isOverdue).length,prog:progress(p),health:health(p)};});
   return{r,rows,projs,wd};
 }
 function pgReports(){
@@ -1084,7 +1109,7 @@ function slipModal(eid,mk){
 function pgSettings(){
   const c=C();
   return pageHead('Settings','Company details, logo, payslip template and departments')+
-  `<div class="grid2">${panel('Rate card – internal cost per person per day',table([{h:'Designation'},{h:'People',r:1},{h:'Cost per day (₹)',r:1},{h:'Cost per hour',r:1}],DB.designations.map(d=>[esc(d.title),staff().filter(e=>e.designationId===d.id&&e.status!=='Exited').length,`<input type="number" min="0" step="100" value="${rateFor(d.id)}" data-chg="rate" data-id="${d.id}" id="rate-${d.id}" aria-label="Cost per day for ${esc(d.title)}">`,inr(rateFor(d.id)/8)])),{flush:true,sub:'Your cost per person per day (salary + overheads ÷ working days). Used by cost estimates and project margins. The starting values are samples.'})}</div>`+
+  `<div class="grid2">${panel('Rate card – internal cost per person per day',table([{h:'Designation'},{h:'People',r:1},{h:'Cost per day (₹)',r:1},{h:'Cost per hour',r:1}],DB.designations.map(d=>[esc(d.title),staff().filter(e=>e.designationId===d.id&&e.status!=='Exited').length,`<input type="number" min="0" step="100" value="${rateFor(d.id)}" data-chg="rate" data-id="${d.id}" id="rate-${d.id}" aria-label="Cost per day for ${esc(d.title)}">`,inr(rateFor(d.id)/8)])),{flush:true,sub:'Your cost per person per day (salary + overheads ÷ working days). Used by cost estimates and project margins. The starting values are samples.'})}${tsSettingsPanel()}</div>`+
   `<div class="grid2">${panel('Company details',`<form data-form="company" class="fgrid">${fld('Company name','name',c.name,'text','required')}${fld('Website','website',c.website)}${fld('Accounts email','email',c.email,'email')}${fld('Phone','phone',c.phone)}${area('Address (shown on payslips and invoices)','address',c.address)}<div class="fld full"><button class="btn pri" type="submit">Save details</button></div></form>`)}
   <div class="stack">${panel('Company logo',`<div class="logo-drop">${brandOnly()?`<div class="stack" style="gap:8px"><div class="logo-big has word"><img src="${BRAND.dark}" alt="Logo on light"></div><div class="logo-big has word on-dark"><img src="${BRAND.white}" alt="Logo on dark"></div></div>`:`<div class="logo-big ${c.logo?'has':''}">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'Your logo<br>here'}</div>`}<div class="stack" style="gap:8px"><p class="note">${brandOnly()?'Your Metaverse911 logo is set: the white version on dark screens, the dark version on payslips, invoices and PDF reports. Upload a file only to replace it.':'PNG or JPG, square works best. It appears on the login page, sidebar, payslips, invoices and PDF reports.'}</p><label class="btn" style="width:max-content">${brandOnly()?'Replace logo':'Upload logo'}<input type="file" accept="image/png,image/jpeg,image/webp" data-chg="logo" id="logo-file" hidden></label>${c.logo?`<button class="btn sm danger" data-act="removeLogo" style="width:max-content">Remove logo</button>`:''}</div></div>`)}
   ${panel('Default payslip template',`<div class="tpl-pick">${TPLS.map(([k,n,s])=>`<button class="tpl-opt ${k===c.template?'on':''}" data-act="setTpl" data-val="${k}"><span class="tpl-thumb th-${k}"><i style="top:28px"></i><i style="top:38px;right:40%"></i><i style="top:48px"></i></span><b>${n}</b><small>${s}</small></button>`).join('')}</div><p class="note" style="margin-top:10px">Preview any template from Payroll → View.</p>`)}
@@ -1330,7 +1355,7 @@ const INP={
 
 /* ---------- project profit ---------- */
 function projProfit(p){const rev=projFin(p).total;const q=p.estimateId&&estById(p.estimateId);const estCost=q?estCalc(q).cost:(p.budget||0);
-  const tids=new Set(DB.tasks.filter(t=>t.projectId===p.id).map(t=>t.id));const labour=Math.round(sum(DB.logs.filter(l=>tids.has(l.t)),l=>l.h/8*rateFor(emp(l.e)?.designationId)));
+  const tids=new Set(DB.tasks.filter(t=>t.projectId===p.id).map(t=>t.id));const labour=Math.round(sum(timeRows().filter(l=>l.p===p.id||(l.src==='log'&&tids.has(l.t))),l=>l.h/8*rateFor(emp(l.e)?.designationId)));
   const exps=DB.expenses.filter(x=>x.projectId===p.id);const exp=sum(exps,x=>x.amount);const act=labour+exp;
   return{rev,hasEst:!!(q||p.budget),estCost,estProfit:rev-estCost,estMargin:rev?(rev-estCost)/rev*100:0,labour,exp,exps,act,actProfit:rev-act,actMargin:rev?(rev-act)/rev*100:0,used:estCost?act/estCost*100:0,q};}
 function marginPill(m,has=true,none='No estimate'){if(!has)return `<span class="note">${none}</span>`;return `<span class="pill ${m<MIN_MARGIN?'bad':m<25?'warn':'good'}">${pct(m)}</span>`;}
@@ -1419,7 +1444,7 @@ function pgForecast(){
 }
 
 /* ================= server sync (replaces browser storage) ================= */
-const COLLS=['designations','employees','clients','projects','tasks','leaves','expenses','advances','updates','logs','pipeline','events','estimates'];
+const COLLS=['designations','employees','clients','projects','tasks','leaves','expenses','advances','updates','logs','pipeline','events','estimates','timesheets'];
 let SNAP=null,VERSION=0,ME=null,USERS=null,FLUSH_T=null,INFLIGHT=null,SYNC='saved',POLL_T=null;
 async function api(path,data,opt={}){
   const r=await fetch(path,{method:opt.method||(data!==undefined?'POST':'GET'),headers:data!==undefined&&!opt.raw?{'content-type':'application/json'}:(opt.type?{'content-type':opt.type}:{}),body:opt.raw||(data!==undefined?JSON.stringify(data):undefined),credentials:'same-origin'});
@@ -1451,7 +1476,7 @@ async function flush(){
 async function flushNow(){clearTimeout(FLUSH_T);if(INFLIGHT)await INFLIGHT.catch(()=>{});await flush();if(INFLIGHT)await INFLIGHT.catch(()=>{});}
 async function loadData(keep){
   const r=await api('/api/data');ME=r.user;DB=r.db;VERSION=r.version;
-  ['designations','employees','clients','projects','tasks','leaves','expenses','advances','updates','logs','pipeline','events','estimates','holidays'].forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});
+  ['designations','employees','clients','projects','tasks','leaves','expenses','advances','updates','logs','pipeline','events','estimates','timesheets','holidays'].forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});
   if(!DB.company)DB.company={name:'Metaverse911',address:'',email:'',phone:'',website:'',logo:null,template:'modern',departments:[],brand:true};
   if(!DB.payroll)DB.payroll={};if(!DB.rates)DB.rates={};
   syncAll();SNAP=snapOf(DB);S.userId=ME.employeeId;if(!keep){S.route='dashboard';S.ui={};}
@@ -1527,7 +1552,7 @@ function setLoginModal(id){const e=emp(id);const u=userOf(id);const taken=new Se
   const base=(u&&u.username)||((String(e.name).split(/\s+/).find(w=>w.length>=3&&!/^[A-Z]{1,3}$/.test(w))||e.name).toLowerCase().replace(/[^a-z0-9]/g,''));let un=base,n=2;while(taken.has(un))un=base+n++;
   formModal(u?'Reset password – '+e.name:'Create login – '+e.name,'setlogin',`${fld('Username','username',un,'text','required minlength="3" maxlength="30" autocapitalize="none" spellcheck="false"')}${fld('First-time password','password',un.charAt(0).toUpperCase()+un.slice(1)+'@123','text','required minlength="6"')}<p class="note fld full">${esc(e.name)} must replace this password the first time they sign in. Tell it to them in person or by phone.</p>`,u?'Reset password':'Create login',false,`data-id="${id}"`);}
 
-const PAGES={forecast:pgForecast,events:pgEvents,estimates:pgEstimates,estimate:pgEstimate,pipeline:pgPipeline,dashboard:pgDashboard,projects:pgProjects,project:pgProject,tasks:pgTasks,timeline:pgTimeline,reports:pgReports,employees:pgEmployees,employee:()=>pgEmployee(false),profile:()=>pgEmployee(true),roles:pgRoles,leave:pgLeave,finance:pgFinance,payroll:pgPayroll,payslips:pgPayslips,settings:pgSettings};
+const PAGES={forecast:pgForecast,events:pgEvents,estimates:pgEstimates,estimate:pgEstimate,pipeline:pgPipeline,dashboard:pgDashboard,timesheet:pgTimesheet,projects:pgProjects,project:pgProject,tasks:pgTasks,timeline:pgTimeline,reports:pgReports,employees:pgEmployees,employee:()=>pgEmployee(false),profile:()=>pgEmployee(true),roles:pgRoles,leave:pgLeave,finance:pgFinance,payroll:pgPayroll,payslips:pgPayslips,settings:pgSettings};
 
 /* ================= overlay / toast ================= */
 const ov=$('#overlay');
@@ -1602,7 +1627,7 @@ const A={
   deleteEmployee(d,el){const e=emp(d.id);if(!e||e.id===U().id){toast('You cannot delete your own login.');return;}
     if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Click again to delete for good';toast('Deleting removes their login, leave, time logs, documents and payroll entries. Their open tasks move to their manager. For people who left, set Status to Exited instead.');return;}
     const to=e.managerId&&emp(e.managerId)?e.managerId:DB.employees.find(x=>x.role==='admin').id;
-    DB.tasks.forEach(t=>{if(t.assignee===e.id)t.assignee=to;});DB.logs=DB.logs.filter(l=>l.e!==e.id);DB.leaves=DB.leaves.filter(l=>l.emp!==e.id);DB.advances=DB.advances.filter(a=>a.emp!==e.id);DB.updates=DB.updates.filter(u=>u.emp!==e.id);
+    DB.tasks.forEach(t=>{if(t.assignee===e.id)t.assignee=to;});DB.logs=DB.logs.filter(l=>l.e!==e.id);DB.timesheets=(DB.timesheets||[]).filter(r=>r.e!==e.id);DB.leaves=DB.leaves.filter(l=>l.emp!==e.id);DB.advances=DB.advances.filter(a=>a.emp!==e.id);DB.updates=DB.updates.filter(u=>u.emp!==e.id);
     DB.employees.forEach(x=>{if(x.managerId===e.id)x.managerId=to;});DB.projects.forEach(p=>{p.team=p.team.filter(i=>i!==e.id);if(p.managerId===e.id)p.managerId=to;});(DB.events||[]).forEach(v=>{v.team=v.team.filter(i=>i!==e.id);});
     Object.keys(DB.payroll).forEach(m=>{const r=DB.payroll[m];if(r.adj)delete r.adj[e.id];if(r.status==='Draft'&&!Object.keys(r.adj||{}).length)delete DB.payroll[m];});api('/api/users/delete',{employeeId:e.id}).catch(()=>{});(DB.demo||[]).splice(0,DB.demo.length,...DB.demo.filter(x=>x[0]!==e.id));
     DB.employees=DB.employees.filter(x=>x.id!==e.id);save();A.nav({to:'employees'});toast(`${e.name} deleted`);},
@@ -1659,7 +1684,7 @@ const A={
   removeLogo(){C().logo=null;refresh();toast('Logo removed');},
   resetData(d,el){if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Click again – this replaces everything';return;}DB=d.which==='demo'?seedDemo():seedReal();migrate();save();S.userId=DB.demo[0][0];saveSession();S.route='dashboard';S.ui={};render();toast(d.which==='demo'?'Demo company loaded':'Imported data reloaded');return;toast('Sample data restored');},
   deleteTask(d,el){if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Click again to delete';return;}DB.tasks=DB.tasks.filter(t=>t.id!==d.id);DB.logs=DB.logs.filter(l=>l.t!==d.id);closeModal();refresh();toast('Task deleted');},
-  dl(d){exportData(d.what,d.fmt);},
+  dl(d){exportData(d.what,d.fmt,d.id);},
   editDeal(d){dealModal(d.id);},
   delDeal(d,el){if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Click again to delete';return;}DB.pipeline=DB.pipeline.filter(x=>x.id!==d.id);closeModal();refresh();toast('Entry deleted');},
   dealToProject(d){A.newProject({deal:d.id});}
@@ -1754,6 +1779,196 @@ const F={
   company(fd){const c=C();['name','website','email','phone','address'].forEach(k=>c[k]=String(fd.get(k)));refresh();toast('Company details saved');},
   dept(fd){const n=String(fd.get('name')).trim();if(n&&!C().departments.includes(n))C().departments.push(n);refresh();}
 };
+/* ================= timesheet ================= */
+const TS_DEFAULT={slots:[{from:'10:00',to:'12:00'},{from:'12:00',to:'14:00'},{from:'15:00',to:'17:00'},{from:'17:00',to:'19:00'}],editDays:7,start:'2026-10-26'};
+const TS_ACT=[['@internal','Internal work (no project)'],['@meeting','Meeting / client call'],['@presales','Proposal / pre-sales'],['@learning','Learning / R&D'],['@idle','No work assigned'],['@break','Break / personal'],['@leave','Leave / off']];
+const TS_OFF=new Set(['@break','@leave']);
+const tsCfg=()=>{const c=DB.tsconfig;return c&&Array.isArray(c.slots)&&c.slots.length?{...TS_DEFAULT,...c}:TS_DEFAULT;};
+const tmin=t=>{const [h,m]=String(t||'0:0').split(':').map(Number);return (h||0)*60+(m||0);};
+const slotLen=s=>Math.max(0,(tmin(s.to)-tmin(s.from))/60);
+const t12=t=>{const m=tmin(t),h=Math.floor(m/60),mm=m%60;const h12=h%12||12;return h12+(mm?':'+z2(mm):'')+(h<12?' am':' pm');};
+const slotLabel=s=>`${t12(s.from)} – ${t12(s.to)}`;
+const tsWhat=p=>{if(!p)return '';if(p[0]==='@')return (TS_ACT.find(a=>a[0]===p)||[p,'Other work'])[1];const x=proj(p);return x?x.name:'(deleted project)';};
+const tsId=(e,d)=>`TS-${e}-${d}`;
+const tsRec=(e,d)=>(DB.timesheets||[]).find(r=>r.e===e&&r.d===d);
+const tsStart=()=>tsCfg().start||TS_DEFAULT.start;
+const tsDayLen=()=>sum(tsCfg().slots,slotLen);
+function tsLinesOf(r){const out=[];(r.slots||[]).forEach((s,i)=>(s.lines||[]).forEach((l,j)=>out.push({p:l.p||'',t:l.t||'',h:+l.h||0,w:l.w||'',si:i,li:j,s:s.from?slotLabel(s):'',e:r.e,d:r.d})));return out;}
+function tsAll(){return (DB.timesheets||[]).flatMap(tsLinesOf).filter(l=>l.p&&l.h>0);}
+const tsWork=l=>!TS_OFF.has(l.p);
+// every hour of work, from timesheets and from older "log time" entries on tasks
+function timeRows(){const ts=tsAll().filter(tsWork).map(l=>({...l,src:'ts'}));
+  const lg=(DB.logs||[]).map(l=>({e:l.e,d:l.d,t:l.t||'',p:(l.t&&task(l.t)?.projectId)||'',h:+l.h||0,w:'',src:'log'}));return lg.concat(ts);}
+const tsHours=r=>r?sum(tsLinesOf(r).filter(l=>l.p&&tsWork(l)),l=>l.h):0;
+const slotDone=s=>(s.lines||[]).some(l=>l.p&&String(l.w||'').trim()&&+l.h>0)||(s.lines||[]).some(l=>TS_OFF.has(l.p)&&+l.h>0);
+function tsCanEdit(e,d){const u=U();if(u.role==='admin')return true;if(e!==u.id||d>TODAY)return false;return d>=addDays(TODAY,-(+tsCfg().editDays||7));}
+function onLeave(e,d){return DB.leaves.find(l=>l.emp===e&&l.status==='Approved'&&l.from<=d&&l.to>=d);}
+const holidayOn=d=>DB.holidays.find(h=>h.date===d);
+const isWorkday=d=>{const w=D(d).getDay();return w>0&&w<6&&!holidayOn(d);};
+// day state for one person: done / part / missing / leave / holiday / off / future
+function tsState(e,d){const r=tsRec(e,d);const h=tsHours(r);const lv=onLeave(e,d);const per=emp(e);
+  if(per&&per.joinDate&&d<per.joinDate)return{k:'off',h};
+  if(r&&(r.slots||[]).length&&r.slots.every(slotDone))return{k:h>0?'done':'leave',h};
+  if(lv)return{k:'leave',h,lv};
+  if(!isWorkday(d))return{k:h>0?'part':holidayOn(d)?'holiday':'off',h};
+  if(d>TODAY)return{k:'future',h};
+  if(d<tsStart())return{k:h>0?'part':'off',h};
+  if(h>0||(r&&tsLinesOf(r).some(l=>l.p||l.w)))return{k:'part',h};
+  return{k:d===TODAY?'today':'missing',h};}
+const TS_TONE={done:'good',part:'warn',missing:'bad',leave:'info',holiday:'',off:'',future:'',today:''};
+const tsPeople=()=>{const u=U();return [u,...scopeEmployees().filter(e=>e.id!==u.id)].filter(e=>e&&e.status!=='Exited');};
+// people expected to fill timesheets (the Admin only once they start using it)
+const tsTeamPeople=()=>tsPeople().filter(e=>e.role!=='admin'||(DB.timesheets||[]).some(r=>r.e===e.id));
+function tsTemplate(){return tsCfg().slots.map(s=>({from:s.from,to:s.to,lines:[{p:'',t:'',h:slotLen(s),w:''}]}));}
+function tsEnsure(e,d){let r=tsRec(e,d);if(!r){r={id:tsId(e,d),e,d,slots:tsTemplate(),at:new Date().toISOString()};DB.timesheets=DB.timesheets||[];DB.timesheets.push(r);}return r;}
+function tsTouch(r){r.at=new Date().toISOString();r.by=U().id;}
+const tsHourOpts=max=>{const o=[];for(let h=0.5;h<=max+1e-9;h+=0.5)o.push([String(h),hrs(h)+' h']);return o;};
+const weekOf=d=>weekRange(d);
+
+/* ---------- page ---------- */
+function pgTimesheet(){
+  const u=U();const mgr=canManage();
+  const tab=S.ui.tst||'day';const tl=[['day',mgr?'Day sheet':'My timesheet'],...(mgr?[['team','Team week']]:[]),['summary','Hours summary']];
+  let body='';
+  if(tab==='team'&&mgr)body=tsTeamView();else if(tab==='summary')body=tsSummaryView();else body=tsDayView();
+  return pageHead('Timesheet',`What everyone worked on, slot by slot · ${tsCfg().slots.map(slotLabel).join(' · ')}`,`<button class="btn" data-act="dl" data-what="timesheet" data-fmt="csv">${ico('download')}Excel (CSV)</button><button class="btn" data-act="dl" data-what="timesheet" data-fmt="pdf">${ico('download')}PDF</button>`)+tabs('tst',tl,tab)+body;
+}
+function tsDayView(){
+  const u=U();const people=tsPeople();let who=S.ui.tse&&people.some(e=>e.id===S.ui.tse)?S.ui.tse:u.id;const d=S.ui.tsd||TODAY;const p=emp(who);
+  const ed=tsCanEdit(who,d);const r=tsRec(who,d);const slots=r?r.slots:tsTemplate();
+  const wk=weekOf(d);const days=[];for(let x=wk.from;x<=wk.to;x=addDays(x,1))days.push(x);
+  const strip=`<div class="ts-week">${days.map(x=>{const st=tsState(who,x);const dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][D(x).getDay()];
+    return `<button class="ts-dayb ${x===d?'on':''} st-${st.k}" data-act="tsDay" data-val="${x}"><b>${dn} ${D(x).getDate()}</b><small>${st.k==='leave'?'Leave':st.k==='holiday'?'Holiday':st.h?hrs(st.h)+' h':st.k==='missing'?'Missing':'—'}</small></button>`;}).join('')}</div>`;
+  const selP=people.length>1?`<select data-chg="setui" data-key="tse" id="ts-person" aria-label="Person">${opts(people.map(e=>[e.id,e.id===u.id?e.name+' (me)':e.name]),who)}</select>`:'';
+  const nav=`<div class="toolbar">${selP}<button class="btn sm" data-act="tsDay" data-val="${addDays(d,-1)}" aria-label="Previous day">‹</button><input type="date" class="inp" style="flex:0 0 160px" value="${d}" data-chg="tsDate" id="ts-date" aria-label="Date"><button class="btn sm" data-act="tsDay" data-val="${addDays(d,1)}" aria-label="Next day">›</button>${d!==TODAY?`<button class="btn sm" data-act="tsDay" data-val="${TODAY}">Today</button>`:''}</div>`;
+  const lv=onLeave(who,d),hol=holidayOn(d);
+  const notes=[lv?`${esc(p.name.split(' ')[0])} is on ${LTYPES[lv.type]||'leave'} this day.`:'',hol?`Public holiday: ${esc(hol.name)}.`:'',!isWorkday(d)&&!hol?'Weekend. Fill it in only if you worked.':'',
+    !ed?(who!==u.id?`View only. Only ${esc(p.name.split(' ')[0])}${u.role==='admin'?'':' and the Admin'} can change this sheet.`:d>TODAY?'You can’t fill in future days.':`This day is locked. Sheets can be changed for ${tsCfg().editDays} days; ask the Admin to correct it.`):''].filter(Boolean);
+  const myProj=(who===u.id?visibleProjects():visibleProjects().filter(x=>x.managerId===who||x.team.includes(who)));
+  const cards=slots.map((s,si)=>{const len=slotLen(s);const lines=s.lines||[];const used=sum(lines,l=>+l.h||0);const done=slotDone(s);
+    const lineHtml=lines.map((l,li)=>{const k=`${si}-${li}`;const isP=l.p&&l.p[0]!=='@';
+      if(!ed)return `<div class="ts-line ro"><div class="ts-lh"><b>${l.p?esc(tsWhat(l.p)):'<span class="muted">Not filled</span>'}</b>${l.t&&task(l.t)?`<span class="note"> · ${esc(task(l.t).title)}</span>`:''}<span class="chip" style="margin-left:auto">${hrs(+l.h||0)} h</span></div>${l.w?`<p>${esc(l.w)}</p>`:''}</div>`;
+      const pList=myProj.filter(x=>x.status!=='Completed'||x.id===l.p);if(isP&&!pList.some(x=>x.id===l.p)&&proj(l.p))pList.push(proj(l.p));
+      const tList=isP?DB.tasks.filter(t=>t.projectId===l.p&&(t.status!=='Done'||t.id===l.t||(t.completedOn||'')>=addDays(d,-14))).sort((a,b)=>(b.assignee===who)-(a.assignee===who)||a.title.localeCompare(b.title)):[];
+      return `<div class="ts-line"><div class="ts-lh">
+        <select class="inp ts-p" data-chg="tsP" data-si="${si}" data-li="${li}" id="tsp-${k}" aria-label="Project or activity"><option value="">Choose project or activity…</option>${pList.length?`<optgroup label="Projects">${opts(pList.map(x=>[x.id,x.name]),l.p)}</optgroup>`:''}<optgroup label="Other work">${opts(TS_ACT,l.p)}</optgroup></select>
+        ${lines.length>1||len!==+l.h?`<select class="inp ts-h" data-chg="tsH" data-si="${si}" data-li="${li}" id="tsh-${k}" aria-label="Hours">${opts(tsHourOpts(len),String(+l.h||0))}</select>`:`<span class="chip">${hrs(len)} h</span>`}
+        ${lines.length>1?`<button class="icon-btn" data-act="tsDelLine" data-si="${si}" data-li="${li}" aria-label="Remove this line" title="Remove">×</button>`:''}</div>
+        ${tList.length?`<select class="inp ts-t" data-chg="tsT" data-si="${si}" data-li="${li}" id="tst-${k}" aria-label="Task"><option value="">Task (optional)</option>${opts(tList.map(t=>[t.id,t.title+(t.assignee!==who?' · '+(emp(t.assignee)?.name||'').split(' ')[0]:'')]),l.t)}</select>`:''}
+        <textarea class="inp ts-w" rows="2" data-inp="tsW" data-si="${si}" data-li="${li}" id="tsw-${k}" placeholder="What did you work on? e.g. Modelled the booth walls, fixed lighting" aria-label="What did you work on">${esc(l.w||'')}</textarea></div>`;}).join('');
+    return `<section class="ts-slot ${done?'done':''}" id="tss-${si}"><div class="ts-sh"><div><b>${slotLabel(s)}</b><small>${hrs(len)} hours</small></div><span class="pill ${done?'good':''}" id="tsst-${si}">${done?'Done':used&&lines.some(l=>l.p)?'In progress':'Empty'}</span></div>${lineHtml}
+      ${ed?`<div class="toolbar" style="margin-top:8px">${lines.length<4&&len>=1?`<button class="btn sm" data-act="tsAddLine" data-si="${si}">+ Split with another project</button>`:''}${si>0?`<button class="btn sm" data-act="tsCopyPrev" data-si="${si}">Same as previous slot</button>`:''}</div>`:''}</section>`;}).join('');
+  const st=tsState(who,d);const h=tsHours(r);const filled=slots.filter(slotDone).length;
+  return nav+strip+(notes.length?`<div class="panel" style="padding:12px 16px">${notes.map(n=>`<p class="note">${n}</p>`).join('')}</div>`:'')+
+   `<div class="ts-sum"><span><b id="ts-tot">${hrs(h)}</b> of ${hrs(tsDayLen())} h</span><span>${filled} of ${slots.length} slots done</span>${pill(st.k==='done'?'Complete':st.k==='missing'?'Not filled':st.k==='leave'?'Leave':st.k==='part'?'Partly filled':st.k==='today'?'Today':st.k==='holiday'?'Holiday':'—',TS_TONE[st.k])}${ed?'<span class="note">Saves automatically as you type.</span>':''}</div>
+   <div class="ts-grid">${cards}</div>`;
+}
+function tsWeekNav(key){const d=S.ui[key]||TODAY;const wk=weekOf(d);return {wk,html:`<div class="toolbar"><button class="btn sm" data-act="setui" data-key="${key}" data-val="${addDays(wk.from,-7)}" aria-label="Previous week">‹</button><b>${fmtDs(wk.from)} – ${fmtD(addDays(wk.to,-1))}</b><button class="btn sm" data-act="setui" data-key="${key}" data-val="${addDays(wk.from,7)}" aria-label="Next week">›</button>${wk.from!==weekOf(TODAY).from?`<button class="btn sm" data-act="setui" data-key="${key}" data-val="${TODAY}">This week</button>`:''}</div>`};}
+function tsTeamView(){
+  const {wk,html}=tsWeekNav('tsw');const days=[];for(let x=wk.from;x<addDays(wk.to,0);x=addDays(x,1))days.push(x);const people=tsTeamPeople();
+  const showSat=people.some(e=>tsHours(tsRec(e.id,days[5]))>0);const cols=showSat?days.slice(0,6):days.slice(0,5);
+  const rows=people.map(e=>{let tot=0,projH=0;const cells=cols.map(x=>{const st=tsState(e.id,x);tot+=st.h;const r=tsRec(e.id,x);if(r)projH+=sum(tsLinesOf(r).filter(l=>l.p&&l.p[0]!=='@'),l=>l.h);
+      const lab=st.k==='leave'?'Leave':st.k==='holiday'?'Holiday':st.h?hrs(st.h)+' h':st.k==='missing'?'Missing':st.k==='today'?'—':'';
+      return `<button class="ts-cell st-${st.k}" data-act="tsOpen" data-e="${e.id}" data-val="${x}" title="${esc(e.name)} · ${fmtD(x)}">${lab||'·'}</button>`;});
+    return[person(e,esc(desig(e.designationId)?.title)),...cells,`<span class="num"><b>${hrs(tot)}</b></span>`,`<span class="num">${tot?Math.round(projH/tot*100)+'%':'—'}</span>`];});
+  const missing=[];people.forEach(e=>cols.forEach(x=>{if(x<TODAY&&tsState(e.id,x).k==='missing')missing.push([e,x]);}));
+  return html+panel('Who filled what',table([{h:'Person'},...cols.map(x=>({h:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][D(x).getDay()]+' '+D(x).getDate()})),{h:'Total',r:1},{h:'On projects',r:1}],rows),{flush:true,sub:'Green = all slots filled · amber = partly · red = nothing entered. Click a day to read it.'})+
+   panel('Missing timesheets',missing.length?`<div class="list">${people.filter(e=>missing.some(m=>m[0]===e)).map(e=>{const ds=missing.filter(m=>m[0]===e).map(m=>m[1]);return `<div class="li"><div class="grow"><b>${esc(e.name)}</b><small>${ds.length} day${ds.length>1?'s':''}: ${ds.map(x=>`<button class="linkbtn" data-act="tsOpen" data-e="${e.id}" data-val="${x}">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][D(x).getDay()]} ${D(x).getDate()}</button>`).join(', ')}</small></div></div>`;}).join('')}</div>`:'<div class="empty">Everyone has filled in their working days this week.</div>',{flush:true});
+}
+function tsRange(){const p=S.ui.tsrp||'week',d=S.ui.tsrd||TODAY;if(p==='month'){const k=d.slice(0,7);return{p,from:k+'-01',to:monthEnd(k),label:monthLabel(k),prev:addMonths(k,-1)+'-01',next:addMonths(k,1)+'-01'};}
+  const w=weekOf(d);return{p,from:w.from,to:w.to,label:`${fmtDs(w.from)} – ${fmtD(w.to)}`,prev:addDays(w.from,-7),next:addDays(w.from,7)};}
+function tsSummaryData(){
+  const r=tsRange();const people=tsPeople();const fe=S.ui.tsrf&&people.some(e=>e.id===S.ui.tsrf)?S.ui.tsrf:'';const ids=new Set(fe?[fe]:people.map(e=>e.id));
+  const vp=new Set(visibleProjects().map(p=>p.id));
+  const lines=tsAll().filter(l=>l.d>=r.from&&l.d<=r.to&&(ids.has(l.e)||(!fe&&l.p&&vp.has(l.p)))).sort((a,b)=>a.d.localeCompare(b.d)||(emp(a.e)?.name||'').localeCompare(emp(b.e)?.name||'')||a.si-b.si);
+  const work=lines.filter(tsWork);
+  const keys=[...new Set(work.map(l=>l.p))].sort((a,b)=>(a[0]==='@')-(b[0]==='@')||sum(work.filter(l=>l.p===b),l=>l.h)-sum(work.filter(l=>l.p===a),l=>l.h));
+  const byP=keys.map(k=>{const ls=work.filter(l=>l.p===k);const ppl=[...new Set(ls.map(l=>l.e))].map(e=>({e:emp(e),h:sum(ls.filter(l=>l.e===e),l=>l.h)})).sort((a,b)=>b.h-a.h);
+    return{k,name:tsWhat(k),isP:k[0]!=='@',h:sum(ls,l=>l.h),ppl,cost:Math.round(sum(ls,l=>l.h/8*rateFor(emp(l.e)?.designationId)))};});
+  const to=r.to<TODAY?r.to:TODAY;
+  const tp=new Set(tsTeamPeople().map(e=>e.id));const byE=people.filter(e=>ids.has(e.id)&&(tp.has(e.id)||fe===e.id)).map(e=>{const ls=work.filter(l=>l.e===e.id);let exp=0,filled=0,miss=0;for(let x=r.from;x<=to;x=addDays(x,1)){if(!isWorkday(x)||onLeave(e.id,x)||(e.joinDate&&x<e.joinDate)||x<tsStart())continue;if(x<TODAY)exp++;const k=tsState(e.id,x).k;if(k==='done')filled++;else if(k==='missing')miss++;}
+    const h=sum(ls,l=>l.h),ph=sum(ls.filter(l=>l.p[0]!=='@'),l=>l.h);return{e,h,ph,oh:h-ph,exp,filled,miss,util:exp?Math.round(ph/(exp*tsDayLen())*100):0};});
+  return{r,lines,work,byP,byE,fe,people};
+}
+function tsSummaryView(){
+  const {r,lines,work,byP,byE,fe,people}=tsSummaryData();const admin=isAdmin();const tot=sum(work,l=>l.h),ph=sum(work.filter(l=>l.p[0]!=='@'),l=>l.h);
+  const tb=`<div class="toolbar">${seg('tsrp',[['week','Week'],['month','Month']],r.p)}<button class="btn sm" data-act="setui" data-key="tsrd" data-val="${r.prev}" aria-label="Previous">‹</button><b>${r.label}</b><button class="btn sm" data-act="setui" data-key="tsrd" data-val="${r.next}" aria-label="Next">›</button>${people.length>1?`<select data-chg="setui" data-key="tsrf" id="tsr-person" aria-label="Person"><option value="">Everyone</option>${opts(people.map(e=>[e.id,e.name]),fe)}</select>`:''}</div>`;
+  const pRows=byP.map(x=>[x.isP?`<button class="linkbtn" data-act="nav" data-to="project" data-id="${x.k}">${esc(x.name)}</button>`:`<span class="muted">${esc(x.name)}</span>`,`<span class="num"><b>${hrs(x.h)}</b></span>`,`<span class="num">${tot?Math.round(x.h/tot*100):0}%</span>`,`<span class="note">${x.ppl.map(y=>`${esc((y.e?.name||'?').split(' ')[0])} ${hrs(y.h)}h`).join(' · ')}</span>`,...(admin?[x.isP?inr(x.cost):'']:[])]);
+  const eRows=byE.map(x=>[person(x.e,esc(desig(x.e.designationId)?.title)),`<span class="num">${x.filled} / ${x.exp}</span>`,x.miss?`<span class="num tag-bad">${x.miss}</span>`:'<span class="num">0</span>',`<span class="num"><b>${hrs(x.h)}</b></span>`,`<span class="num">${hrs(x.ph)}</span>`,`<span class="num">${hrs(x.oh)}</span>`,`<div class="prog-row"><div class="prog"><i style="width:${Math.min(100,x.util)}%;${x.util<60?'background:var(--warn)':''}"></i></div><span>${x.util}%</span></div>`]);
+  const shown=lines.slice(-150).reverse();
+  const eList=shown.map(l=>[`<span class="nowrap">${fmtDs(l.d)}</span><div class="note">${esc(l.s)}</div>`,esc(emp(l.e)?.name||''),`${l.p[0]==='@'?`<span class="muted">${esc(tsWhat(l.p))}</span>`:esc(tsWhat(l.p))}${l.t&&task(l.t)?`<div class="note">${esc(task(l.t).title)}</div>`:''}`,`<span class="num">${hrs(l.h)}</span>`,esc(l.w)]);
+  return tb+`<div class="kpis">${kpi('Hours entered',hrs(tot),r.label)}${kpi('On projects',hrs(ph)+' h',tot?Math.round(ph/tot*100)+'% of all hours':'')}${kpi('Other work',hrs(tot-ph)+' h','internal, meetings, pre-sales…')}${kpi('Days missing',sum(byE,x=>x.miss),'working days with nothing entered',sum(byE,x=>x.miss)?'bad':'good')}</div>`+
+   `<div class="stack">${panel('Hours by project',table([{h:'Project / activity'},{h:'Hours',r:1},{h:'Share',r:1},{h:'Who'},...(admin?[{h:'Team cost',r:1}]:[])],pRows),{flush:true,sub:admin?'Team cost = hours × the rate card in Settings. It also feeds Project margins.':'From everyone’s timesheets'})}
+   ${panel('Hours by person',table([{h:'Person'},{h:'Days filled',r:1},{h:'Missing',r:1},{h:'Total',r:1},{h:'Projects',r:1},{h:'Other',r:1},{h:'On projects'}],eRows),{flush:true,sub:'“On projects” = project hours ÷ a full day for each working day so far'})}</div>`+
+   panel('Entries',table([{h:'Day'},{h:'Person'},{h:'Project / task'},{h:'Hours',r:1},{h:'What was done'}],eList),{flush:true,sub:lines.length>150?`Latest 150 of ${lines.length}. Download for all of them.`:`${lines.length} entries`});
+}
+function tsProjectTab(p){
+  const ls=tsAll().filter(l=>l.p===p.id);const old=(DB.logs||[]).filter(l=>l.t&&task(l.t)?.projectId===p.id);const wk=weekOf(TODAY),mk=TODAY.slice(0,7);
+  const all=ls.map(l=>({e:l.e,d:l.d,h:l.h})).concat(old.map(l=>({e:l.e,d:l.d,h:+l.h||0})));
+  const ppl=[...new Set(all.map(l=>l.e))].map(e=>{const x=all.filter(l=>l.e===e);return{e:emp(e),w:sum(x.filter(l=>l.d>=wk.from&&l.d<=wk.to),l=>l.h),m:sum(x.filter(l=>l.d.slice(0,7)===mk),l=>l.h),t:sum(x,l=>l.h),last:x.map(l=>l.d).sort().pop()};}).sort((a,b)=>b.t-a.t);
+  const tot=sum(all,l=>l.h);const cost=Math.round(sum(all,l=>l.h/8*rateFor(emp(l.e)?.designationId)));
+  const recent=ls.slice().sort((a,b)=>b.d.localeCompare(a.d)||b.si-a.si).slice(0,40);
+  return `<div class="kpis">${kpi('Hours so far',hrs(tot))}${kpi('This week',hrs(sum(ppl,x=>x.w)),`${fmtDs(wk.from)} – ${fmtDs(wk.to)}`)}${kpi('This month',hrs(sum(ppl,x=>x.m)),monthLabel(mk))}${isAdmin()?kpi('Team cost so far',shortInr(cost),'hours × rate card'):kpi('People',ppl.length,'who logged time')}</div>`+
+   `<div class="grid2">${panel('What the team did',recent.length?`<div class="feed">${recent.map(l=>{const e=emp(l.e);return `<div class="li">${avatar(e,'sm')}<div class="grow"><small><b style="display:inline;color:var(--fg)">${esc(e?.name)}</b> · ${fmtDs(l.d)} · ${esc(l.s)} · ${hrs(l.h)} h${l.t&&task(l.t)?' · '+esc(task(l.t).title):''}</small>${l.w?`<p>${esc(l.w)}</p>`:''}</div></div>`;}).join('')}</div>`:'<div class="empty">No timesheet entries for this project yet.</div>',{flush:true,sub:'From timesheets, newest first'})}
+   ${panel('Hours by person',table([{h:'Person'},{h:'This week',r:1},{h:'This month',r:1},{h:'Total',r:1},{h:'Last entry'}],ppl.map(x=>[person(x.e,esc(desig(x.e?.designationId)?.title||'')),hrs(x.w),hrs(x.m),`<b>${hrs(x.t)}</b>`,fmtDs(x.last)])),{flush:true,actions:`<button class="btn sm" data-act="dl" data-what="tsproject" data-fmt="csv" data-id="${p.id}">${ico('download')}CSV</button>`})}</div>`;
+}
+function tsTodayPanel(){const u=U();const r=tsRec(u.id,TODAY);const slots=r?r.slots:tsTemplate();const n=slots.filter(slotDone).length;
+  const miss=[];for(let x=addDays(TODAY,-(+tsCfg().editDays||7));x<TODAY;x=addDays(x,1))if(tsState(u.id,x).k==='missing')miss.push(x);
+  return panel('Today’s timesheet',`<div class="ts-mini">${slots.map(s=>`<span class="${slotDone(s)?'on':''}" title="${slotLabel(s)}">${t12(s.from)}</span>`).join('')}</div><p class="note" style="margin-top:8px">${n} of ${slots.length} slots filled · ${hrs(tsHours(r))} h</p>${miss.length?`<p class="note tag-bad" style="margin-top:4px">Not filled: ${miss.map(x=>`<button class="linkbtn" data-act="tsGo" data-val="${x}">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][D(x).getDay()]} ${D(x).getDate()}</button>`).join(', ')}</p>`:''}`,{actions:`<button class="btn sm pri" data-act="tsGo" data-val="${TODAY}">Fill timesheet</button>`});}
+function tsMissingAttention(){if(!canManage())return '';const d=LASTWORK;const miss=tsTeamPeople().filter(e=>tsState(e.id,d).k==='missing');
+  return miss.length?`<div class="li"><div class="grow"><b>Timesheet not filled – ${fmtDs(d)}</b><small>${miss.map(e=>esc(e.name)).join(', ')}</small></div><button class="btn sm" data-act="tsTeam" data-val="${d}">View</button></div>`:'';}
+function tsSettingsPanel(){const c=tsCfg();
+  return panel('Timesheet slots',`<div class="stack" style="gap:8px">${c.slots.map((s,i)=>`<div class="inline-form"><span class="chip" style="flex:0 0 auto">Slot ${i+1}</span><input type="time" class="inp" style="flex:0 0 130px" value="${s.from}" data-chg="tsCfgT" data-i="${i}" data-f="from" id="tsc-f${i}" aria-label="Slot ${i+1} start"><span>to</span><input type="time" class="inp" style="flex:0 0 130px" value="${s.to}" data-chg="tsCfgT" data-i="${i}" data-f="to" id="tsc-t${i}" aria-label="Slot ${i+1} end"><span class="note">${hrs(slotLen(s))} h</span>${c.slots.length>1?`<button class="icon-btn" data-act="tsCfgDel" data-i="${i}" aria-label="Remove slot ${i+1}">×</button>`:''}</div>`).join('')}
+    <div class="toolbar">${c.slots.length<8?`<button class="btn sm" data-act="tsCfgAdd">+ Add slot</button>`:''}<label class="fld" style="flex-direction:row;align-items:center;gap:8px"><span>People can change their sheet for</span><input type="number" class="inp" min="1" max="60" style="width:80px" value="${c.editDays}" data-chg="tsCfgDays" id="tsc-days"><span>days</span></label></div>
+    <label class="fld" style="flex-direction:row;align-items:center;gap:8px"><span>Timesheets required from</span><input type="date" class="inp" style="width:170px" value="${tsStart()}" data-chg="tsCfgStart" id="tsc-start"></label>
+    <p class="note">Total ${hrs(tsDayLen())} hours a day. Days before the “required from” date are never marked missing. Changing slots affects new days only; sheets already filled keep their times.</p></div>`,{sub:'The working day is split into these slots. Everyone writes what they did in each one.'});}
+
+/* ---------- actions ---------- */
+function tsCur(){const people=tsPeople();const who=S.ui.tse&&people.some(e=>e.id===S.ui.tse)?S.ui.tse:U().id;return{who,d:S.ui.tsd||TODAY};}
+function tsLine(d){const {who,d:day}=tsCur();if(!tsCanEdit(who,day)){toast('This sheet is locked.');return null;}const r=tsEnsure(who,day);const s=r.slots[+d.si];if(!s)return null;const l=s.lines[+d.li];return l?{r,s,l}:null;}
+function tsSaved(r,rerender){tsTouch(r);if(rerender){refresh();}else{save();}}
+Object.assign(A,{
+  tsDay(d){S.ui.tsd=d.val;render();},
+  tsGo(d){closeModal();S.ui.tst='day';S.ui.tse='';S.ui.tsd=d.val;S.route='timesheet';render();window.scrollTo(0,0);},
+  tsOpen(d){S.ui.tst='day';S.ui.tse=d.e;S.ui.tsd=d.val;render();window.scrollTo(0,0);},
+  tsTeam(d){S.route='timesheet';S.ui.tst='team';S.ui.tsw=d.val;render();window.scrollTo(0,0);},
+  tsAddLine(d){const {who,d:day}=tsCur();if(!tsCanEdit(who,day))return;const r=tsEnsure(who,day);const s=r.slots[+d.si];const last=s.lines[s.lines.length-1];const half=Math.max(0.5,Math.floor((+last.h||slotLen(s))/2*2)/2);
+    last.h=Math.max(0.5,(+last.h||slotLen(s))-half);s.lines.push({p:'',t:'',h:half,w:''});tsSaved(r,true);},
+  tsDelLine(d){const x=tsLine(d);if(!x)return;const {r,s}=x;s.lines.splice(+d.li,1);const len=slotLen(s);const used=sum(s.lines,l=>+l.h||0);if(s.lines.length===1||used<len)s.lines[0].h=Math.min(len,(+s.lines[0].h||0)+(len-used));tsSaved(r,true);},
+  tsCopyPrev(d){const {who,d:day}=tsCur();if(!tsCanEdit(who,day))return;const r=tsEnsure(who,day);const i=+d.si;const prev=r.slots[i-1],s=r.slots[i];if(!prev||!s)return;
+    const len=slotLen(s),plen=slotLen(prev)||1;s.lines=prev.lines.map(l=>({p:l.p,t:l.t,w:l.w,h:Math.max(0.5,Math.round((+l.h||0)*len/plen*2)/2)}));if(s.lines.length===1)s.lines[0].h=len;tsSaved(r,true);toast('Copied – change the text if the work was different');},
+  tsCfgAdd(){const c=JSON.parse(JSON.stringify(tsCfg()));const last=c.slots[c.slots.length-1];const f=last?last.to:'10:00';const m=Math.min(23*60+59,tmin(f)+120);c.slots.push({from:f,to:z2(Math.floor(m/60))+':'+z2(m%60)});DB.tsconfig=c;refresh();},
+  tsCfgDel(d){const c=JSON.parse(JSON.stringify(tsCfg()));c.slots.splice(+d.i,1);DB.tsconfig=c;refresh();},
+});
+Object.assign(CH,{
+  tsDate(d,el){if(el.value){S.ui.tsd=el.value;render();}},
+  tsP(d,el){const x=tsLine(d);if(!x)return;x.l.p=el.value;x.l.t='';tsSaved(x.r,true);},
+  tsT(d,el){const x=tsLine(d);if(!x)return;x.l.t=el.value;tsSaved(x.r,false);},
+  tsH(d,el){const x=tsLine(d);if(!x)return;const {s,l}=x;const len=slotLen(s);l.h=+el.value;const others=s.lines.filter(o=>o!==l);const rest=len-l.h;
+    if(others.length===1)others[0].h=Math.max(0.5,rest);else if(sum(s.lines,o=>+o.h||0)>len)toast(`This slot is ${hrs(len)} h – the lines add up to more.`);tsSaved(x.r,true);},
+  tsCfgT(d,el){const c=JSON.parse(JSON.stringify(tsCfg()));const s=c.slots[+d.i];s[d.f]=el.value;if(tmin(s.to)<=tmin(s.from)){toast('The end must be after the start.');render();return;}DB.tsconfig=c;refresh();},
+  tsCfgStart(d,el){if(!el.value)return;DB.tsconfig={...JSON.parse(JSON.stringify(tsCfg())),start:el.value};refresh();toast('Timesheets required from '+fmtD(el.value));},
+  tsCfgDays(d,el){const n=Math.max(1,Math.min(60,Math.round(+el.value||7)));DB.tsconfig={...JSON.parse(JSON.stringify(tsCfg())),editDays:n};refresh();toast(`Sheets can be changed for ${n} days`);},
+});
+Object.assign(INP,{
+  tsW(d,el){const x=tsLine(d);if(!x)return;x.l.w=el.value.slice(0,1000);tsTouch(x.r);save();
+    const s=x.s,si=+d.si;const done=slotDone(s);const b=document.getElementById('tsst-'+si);if(b){b.textContent=done?'Done':'In progress';b.className='pill '+(done?'good':'');}const c=document.getElementById('tss-'+si);if(c)c.classList.toggle('done',done);
+    const t=document.getElementById('ts-tot');if(t)t.textContent=hrs(tsHours(x.r));},
+});
+function tsExport(fmt,pid){
+  if(pid){const p=proj(pid);const ls=tsAll().filter(l=>l.p===pid).sort((a,b)=>a.d.localeCompare(b.d)||a.si-b.si);
+    return saveCsv(`Timesheet-${p.code||'project'}-${TODAY}.csv`,['Date','Slot','Person','Task','Hours','What was done'],ls.map(l=>[l.d,l.s,emp(l.e)?.name||'',l.t&&task(l.t)?task(l.t).title:'',l.h,l.w]));}
+  const {r,lines,byP,byE}=tsSummaryData();const admin=isAdmin();const tag=r.p==='month'?r.from.slice(0,7):r.from;
+  const head=['Date','Day','Slot','Person','Project / activity','Project code','Task','Hours','What was done'];
+  const body=lines.map(l=>[l.d,['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][D(l.d).getDay()],l.s,emp(l.e)?.name||'',tsWhat(l.p),l.p[0]==='@'?'':proj(l.p)?.code||'',l.t&&task(l.t)?task(l.t).title:'',l.h,l.w]);
+  if(fmt==='csv')return saveCsv(`Timesheet-${tag}.csv`,head,body);
+  const doc=pdfDoc('l');let y=pdfHeader(doc,`Timesheet – ${r.p==='month'?'month':'week'}`,r.label);
+  y=pdfSection(doc,y,'Hours by project');y=pdfTable(doc,y,[{h:'Project / activity',w:3},{h:'Hours',w:1,r:1},{h:'People',w:5},...(admin?[{h:'Team cost',w:1.3,r:1}]:[])],byP.map(x=>[x.name,hrs(x.h),x.ppl.map(p=>`${(p.e?.name||'?').split(' ')[0]} ${hrs(p.h)}h`).join(', '),...(admin?[x.isP?inrP(x.cost):'']:[])]),['Total',hrs(sum(byP,x=>x.h)),'',...(admin?[inrP(sum(byP.filter(x=>x.isP),x=>x.cost))]:[])]);
+  y=pdfSection(doc,y,'Hours by person');y=pdfTable(doc,y,[{h:'Person',w:2.5},{h:'Days filled',w:1,r:1},{h:'Missing days',w:1,r:1},{h:'Total h',w:1,r:1},{h:'Project h',w:1,r:1},{h:'Other h',w:1,r:1},{h:'On projects %',w:1,r:1}],byE.map(x=>[x.e.name,`${x.filled}/${x.exp}`,x.miss,hrs(x.h),hrs(x.ph),hrs(x.oh),x.util]));
+  if(lines.length){y=pdfSection(doc,y,'Entries');pdfTable(doc,y,[{h:'Date',w:.9},{h:'Slot',w:1.2},{h:'Person',w:1.4},{h:'Project / activity',w:2},{h:'Hours',w:.6,r:1},{h:'What was done',w:5}],lines.map(l=>[fmtDs(l.d),l.s,(emp(l.e)?.name||''),tsWhat(l.p)+(l.t&&task(l.t)?' – '+task(l.t).title:''),hrs(l.h),l.w]));}
+  return savePdf(doc,`Timesheet-${tag}.pdf`);
+}
+
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const fn=A[t.dataset.act];if(!fn)return;if(t.tagName==='A')e.preventDefault();fn({...t.dataset},t,e);});
 document.addEventListener('input',e=>{const t=e.target.closest('[data-inp]');if(!t)return;const fn=INP[t.dataset.inp];if(fn)fn({...t.dataset},t);});
 document.addEventListener('change',e=>{const t=e.target.closest('[data-chg]');if(!t)return;const fn=CH[t.dataset.chg];if(fn)fn({...t.dataset},t);});
@@ -1778,7 +1993,8 @@ function pdfTable(doc,y,cols,rows,foot){const W=doc.internal.pageSize.getWidth()
 function pdfSection(doc,y,t){const H=doc.internal.pageSize.getHeight();if(y>H-100){doc.addPage();y=48;}doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(27,32,29);doc.text(t,40,y);return y+10;}
 function tableReport(name,title,sub,cols,rows,foot,orient='p'){const doc=pdfDoc(orient);let y=pdfHeader(doc,title,sub);pdfTable(doc,y,cols,rows,foot);savePdf(doc,name);}
 
-function exportData(what,fmt){
+function exportData(what,fmt,id){
+  if(what==='timesheet')return tsExport(fmt);if(what==='tsproject')return tsExport(fmt,id);
   const its=allItems();const stamp=TODAY;
   if(what==='team'){const {r,rows,projs}=reportData();const per={day:'Daily',week:'Weekly',month:'Monthly'}[r.p];
     const head=['Employee','Designation','Tasks completed','In progress','Overdue','Hours logged','Utilisation %','Updates posted'];const body=rows.map(x=>[x.e.name,desig(x.e.designationId)?.title||'',x.done.length,x.prog,x.od,hrs(x.h),x.util,x.up]);

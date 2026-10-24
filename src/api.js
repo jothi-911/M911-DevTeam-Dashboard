@@ -7,7 +7,7 @@ import { viewFor, checkChange, checkSingle, isAdmin } from './policy.js';
 
 const DOC_MAX = 4 * 1024 * 1024;
 const DOC_MIME = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
-const COLLECTION_KEYS = ['designations', 'employees', 'clients', 'projects', 'tasks', 'leaves', 'expenses', 'advances', 'updates', 'logs', 'pipeline', 'events', 'estimates'];
+const COLLECTION_KEYS = ['designations', 'employees', 'clients', 'projects', 'tasks', 'leaves', 'expenses', 'advances', 'updates', 'logs', 'pipeline', 'events', 'estimates', 'timesheets'];
 
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });

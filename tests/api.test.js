@@ -156,6 +156,60 @@ r = await write(ankit, [{ c: 'employees', id: 'G5', op: 'upsert', d: { ...r.body
 r = await admin.call('/api/data');
 check('Documents', 'Employee cannot mark own document as verified', !r.body.db.employees.find(e => e.id === 'G5').docs.find(d => d.id === docId).verified);
 
+// ---------- timesheets ----------
+{
+  const ist = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  const dAdd = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const sheet = (e, d, lines) => ({ id: `TS-${e}-${d}`, e, d, at: new Date().toISOString(), slots: [
+    { from: '10:00', to: '12:00', lines: lines[0] }, { from: '12:00', to: '14:00', lines: lines[1] }] });
+  r = await admin.call('/api/data');
+  const p3 = r.body.db.projects.find(p => p.id === 'P3qvs');
+  r = await write(admin, [{ c: 'projects', id: p3.id, op: 'upsert', d: { ...p3, team: ['G5', 'G1'] } }]);
+  check('Timesheet', 'Admin puts Ankit and Gargi on a project', r.status === 200 && !r.body.rejected.length);
+  const mine = sheet('G5', ist, [[{ p: 'P3qvs', t: '', h: 2, w: 'Modelled the booth' }], [{ p: '@internal', t: '', h: 1, w: 'Internal tool fix' }, { p: 'P3qvs', t: '', h: 1, w: 'Client review' }]]);
+  r = await write(ankit, [{ c: 'timesheets', id: mine.id, op: 'upsert', d: mine }]);
+  check('Timesheet', 'Employee saves own timesheet for today', r.status === 200 && !r.body.rejected.length, JSON.stringify(r.body));
+  r = await ankit.call('/api/data');
+  check('Timesheet', 'It is stored on the server', (r.body.db.timesheets || []).some(x => x.id === mine.id && x.slots[0].lines[0].w === 'Modelled the booth'));
+  const forAkash = sheet('G6', ist, [[{ p: '@idle', h: 2, w: 'x' }], []]);
+  r = await write(ankit, [{ c: 'timesheets', id: forAkash.id, op: 'upsert', d: forAkash }]);
+  check('Timesheet', 'Cannot fill in someone else’s timesheet', r.body.rejected.length === 1);
+  const bad = { ...mine, id: 'TS-G5-x' };
+  r = await write(ankit, [{ c: 'timesheets', id: bad.id, op: 'upsert', d: bad }]);
+  check('Timesheet', 'Record id must match person and date', r.body.rejected.length === 1);
+  const oldDay = sheet('G5', dAdd(ist, -20), [[{ p: 'P3qvs', h: 2, w: 'old' }], []]);
+  r = await write(ankit, [{ c: 'timesheets', id: oldDay.id, op: 'upsert', d: oldDay }]);
+  check('Timesheet', 'Days older than the edit window are locked', r.body.rejected.length === 1 && /7 days/.test(r.body.rejected[0].why), JSON.stringify(r.body.rejected));
+  const future = sheet('G5', dAdd(ist, 3), [[{ p: 'P3qvs', h: 2, w: 'future' }], []]);
+  r = await write(ankit, [{ c: 'timesheets', id: future.id, op: 'upsert', d: future }]);
+  check('Timesheet', 'Future days are refused', r.body.rejected.length === 1);
+  const junk = { ...sheet('G5', dAdd(ist, -1), [[], []]), slots: 'nope' };
+  r = await write(ankit, [{ c: 'timesheets', id: junk.id, op: 'upsert', d: junk }]);
+  check('Timesheet', 'Malformed timesheet is refused', r.body.rejected.length === 1);
+  r = await write(ankit, [], [{ k: 'tsconfig', d: { slots: [{ from: '09:00', to: '18:00' }], editDays: 365 } }]);
+  check('Timesheet', 'Employee cannot change the slots or edit window', r.body.rejected.length === 1);
+  r = await akash.call('/api/data');
+  check('Timesheet', 'Another employee does not see it', !(r.body.db.timesheets || []).some(x => x.e === 'G5'));
+  r = await gargi.call('/api/data');
+  const g = (r.body.db.timesheets || []).find(x => x.e === 'G5');
+  const gl = g ? g.slots.flatMap(s => s.lines) : [];
+  check('Timesheet', 'Project colleague sees only the lines on their project', g && gl.length === 2 && gl.every(l => l.p === 'P3qvs'), JSON.stringify(gl));
+  r = await admin.call('/api/data');
+  check('Timesheet', 'Admin sees the whole sheet', (r.body.db.timesheets || []).find(x => x.id === mine.id).slots[1].lines.length === 2);
+  r = await write(admin, [], [{ k: 'tsconfig', d: { slots: [{ from: '10:00', to: '12:00' }, { from: '12:00', to: '14:00' }], editDays: 30 } }]);
+  r = await write(ankit, [{ c: 'timesheets', id: oldDay.id, op: 'upsert', d: oldDay }]);
+  check('Timesheet', 'Admin widens the edit window; older day can now be saved', r.status === 200 && !r.body.rejected.length, JSON.stringify(r.body));
+  r = await ankit.call('/api/data');
+  check('Timesheet', 'Employees receive the slot settings', r.body.db.tsconfig && r.body.db.tsconfig.editDays === 30);
+  r = await write(ankit, [{ c: 'timesheets', id: oldDay.id, op: 'delete' }]);
+  check('Timesheet', 'Employee can delete own sheet inside the window', r.status === 200 && !r.body.rejected.length);
+  const fixed = sheet('G6', dAdd(ist, -40), [[{ p: '@internal', h: 2, w: 'Corrected by Admin' }], []]);
+  r = await write(admin, [{ c: 'timesheets', id: fixed.id, op: 'upsert', d: fixed }]);
+  check('Timesheet', 'Admin can correct anyone’s older sheet', r.status === 200 && !r.body.rejected.length);
+  r = await admin.call('/api/backup');
+  check('Timesheet', 'Timesheets are in the backup', (r.body.db.timesheets || []).length >= 2);
+}
+
 // ---------- admin tools ----------
 r = await ankit.call('/api/backup');
 check('Admin', 'Employee cannot download a backup', r.status === 403);

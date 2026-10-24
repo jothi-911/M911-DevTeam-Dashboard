@@ -22,6 +22,16 @@ function ctx(user, db) {
   return { me, manager, scope, projIds, managedIds, taskVisible };
 }
 
+// Today's date in India (the server itself may run on UTC).
+const istToday = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+const addDaysIso = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+function validTimesheet(d) {
+  if (!d || typeof d !== 'object' || !isDate(d.d) || !Array.isArray(d.slots) || d.slots.length > 12) return false;
+  return d.slots.every(s => s && Array.isArray(s.lines) && s.lines.length <= 6 && s.lines.every(l => l && typeof l === 'object'
+    && Number.isFinite(+l.h) && +l.h >= 0 && +l.h <= 24 && String(l.w || '').length <= 2000 && String(l.p || '').length <= 80 && String(l.t || '').length <= 80));
+}
+
 const omit = (o, keys) => { const c = { ...o }; keys.forEach(k => delete c[k]); return c; };
 
 // ---------- read filter ----------
@@ -58,6 +68,12 @@ export function viewFor(user, db) {
   const visibleTaskIds = new Set(v.tasks.map(t => t.id));
   v.logs = (db.logs || []).filter(l => c.scope.has(l.e) || visibleTaskIds.has(l.t));
   v.leaves = (db.leaves || []).filter(l => c.scope.has(l.emp));
+  // timesheets: your own (and your team's, for managers); for anyone else only the lines on projects you are on
+  v.timesheets = (db.timesheets || []).flatMap(r => {
+    if (c.scope.has(r.e)) return [r];
+    const slots = (r.slots || []).map(s => ({ ...s, lines: (s.lines || []).filter(l => l && l.p && c.projIds.has(l.p)) }));
+    return slots.some(s => s.lines.length) ? [{ ...r, slots, partial: true }] : [];
+  });
   v.updates = (db.updates || []).filter(u => c.projIds.has(u.project) || u.emp === c.me);
   v.advances = (db.advances || []).filter(a => a.emp === c.me);
   v.pipeline = []; v.estimates = []; v.expenses = [];
@@ -95,6 +111,19 @@ export function checkChange(user, db, ch) {
       const rec = old || d;
       if (!rec || rec.e !== c.me || (d && d.e !== c.me)) return no('You can only log your own time.');
       return ch.op === 'delete' ? { ok: true } : { ok: true, data: d };
+    }
+    case 'timesheets': {
+      const rec = old || d;
+      if (!rec || rec.e !== c.me || (d && d.e !== c.me) || (old && d && old.d !== d.d)) return no('You can only fill in your own timesheet.');
+      const day = rec.d;
+      if (ch.id !== `TS-${c.me}-${day}`) return no('That timesheet is not valid.');
+      const keep = Math.max(1, +(db.tsconfig && db.tsconfig.editDays) || 7);
+      const today = istToday();
+      if (day > addDaysIso(today, 1)) return no('You can’t fill in future days.');
+      if (day < addDaysIso(today, -(keep + 1))) return no(`Timesheets can only be changed for ${keep} days. Ask the Admin to correct older days.`);
+      if (ch.op === 'delete') return { ok: true };
+      if (!validTimesheet(d)) return no('That timesheet is not valid.');
+      return { ok: true, data: d };
     }
     case 'updates': {
       if (ch.op === 'delete' || old) return no('Updates cannot be edited.');
