@@ -475,6 +475,7 @@ code{font-family:var(--f-mono);background:var(--sunken);padding:1px 6px;border-r
 .paybar{margin-top:8px}.paybar .prog{height:6px}.paybar small{display:block;margin-top:4px;font-size:11.5px;color:var(--muted)}
 .paysum{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.paysum-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
 .paysum-l{margin:12px 0 4px;font-size:12px;font-weight:600}.pay-li{display:flex;gap:10px;align-items:baseline;padding:4px 0;font-size:13px}.pay-li .mono{color:var(--muted);font-size:12px;width:48px}
+.poc-line{gap:12px}.poc-line .linkbtn{font-size:12px;font-weight:600}
 .ro-val{display:flex;align-items:center;gap:10px;padding:6px 0}.ro-val b{font-size:15px}
 /* ---------- timesheet ---------- */
 .ts-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:4px 0 14px}
@@ -683,6 +684,18 @@ function valueFixPanel(){const ms=valueMismatches();if(!ms.length)return '';
   return panel(`${ms.length} entr${ms.length>1?'ies have':'y has'} a different value from its project`,table([{h:'Client · work'},{h:'Pipeline value',r:1},{h:'Project value',r:1},{h:''}],ms.map(({x,p})=>[`<b>${esc(x.client)}</b><div class="note">${esc(p.name)}</div>`,x.value==null?'<span class="muted">blank</span>':inr(x.value),inr(projFin(p).total),
     `<div class="toolbar" style="justify-content:flex-end"><button class="btn sm pri" data-act="valUseProj" data-id="${x.id}">Keep project value</button><button class="btn sm" data-act="valUseDeal" data-id="${x.id}" ${x.value?'':'disabled'}>Use pipeline value</button></div>`])),
     {flush:true,sub:'From now on the project value is the only value: the pipeline copies it. Choose once which figure is right.',actions:ms.length>1?`<button class="btn sm" data-act="valUseProjAll">Keep project values for all</button>`:''});}
+
+// ---- POC tasks ----
+const pocName=x=>x.client+(x.work&&x.work!=='Not yet documented'?' – '+x.work:'');
+const isPoc=t=>!!(t&&t.poc&&!t.projectId);
+const taskPlace=t=>{const p=t.projectId&&proj(t.projectId);return p?p.name:t.poc?'POC – '+t.poc.name:'Internal';};
+const taskChip=t=>{const p=t.projectId&&proj(t.projectId);return p?esc(p.code):t.poc?`<span title="${esc('POC – '+t.poc.name)}">POC · ${esc(String(t.poc.name).split(' – ')[0])}</span>`:'Internal';};
+const pocDeals=()=>(DB.pipeline||[]).filter(x=>!x.projectId&&x.stage!=='Lost'&&x.stage!=='Delivered');
+const pocTasksOf=x=>DB.tasks.filter(t=>t.poc&&t.poc.dealId===x.id&&!t.projectId);
+function pocCardLine(x){if(x.projectId)return '';const ts=pocTasksOf(x);const open=OPEN_STAGES.includes(x.stage)||x.stage==='PO Received';if(!ts.length&&!open)return '';
+  return `<div class="tc-meta poc-line">${ts.length?`<button class="linkbtn" data-act="pocTasks" data-id="${x.id}">POC: ${ts.length} task${ts.length>1?'s':''} · ${ts.filter(t=>t.status==='Done').length} done</button>`:''}${open?`<button class="linkbtn" data-act="newTask" data-deal="${x.id}">+ POC task</button>`:''}</div>`;}
+// move POC tasks (and their people) into the project created from the pipeline entry
+function pocToProject(x,p){const ts=pocTasksOf(x);ts.forEach(t=>{t.projectId=p.id;if(t.assignee&&t.assignee!==p.managerId&&!p.team.includes(t.assignee))p.team.push(t.assignee);});return ts.length;}
 function projFin(p){const total=sum(p.schedule,s=>s.amount),raised=sum(p.schedule.filter(s=>s.due<=TODAY),s=>s.amount),coll=sum(p.receipts||[],r=>r.amount),od=sum(p.schedule.filter(s=>s.due<TODAY),s=>bal(s));return{total,raised,coll,bal:total-coll,od};}
 function workdays(from,to){let n=0;for(let d=from;d<=to;d=addDays(d,1)){const w=D(d).getDay();if(w&&w<6&&!DB.holidays.some(h=>h.date===d))n++;}return n;}
 function unpaidLeaveDays(eid,mk){const from=mk+'-01',to=monthEnd(mk);let n=0;DB.leaves.filter(l=>l.emp===eid&&l.type==='Unpaid'&&l.status==='Approved').forEach(l=>{for(let d=l.from;d<=l.to;d=addDays(d,1)){const w=D(d).getDay();if(d>=from&&d<=to&&w&&w<6&&!DB.holidays.some(h=>h.date===d))n++;}});return n;}
@@ -833,9 +846,9 @@ function pgMyWork(){
   const soon=open.filter(t=>t.due>=TODAY&&t.due<=addDays(TODAY,7));const wk=weekRange(LASTWORK);
   const h=sum(timeRows().filter(l=>l.e===u.id&&l.d>=wk.from&&l.d<=wk.to),l=>l.h);
   const myP=visibleProjects().filter(p=>p.status!=='Completed');
-  const list=open.sort((a,b)=>a.due.localeCompare(b.due)).map(t=>{const p=t.projectId&&proj(t.projectId);return `<div class="li"><div class="grow"><button class="linkbtn" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button><small>${p?esc(p.name):'Internal'} · <span class="${isOverdue(t)?'tag-bad':''}">due ${fmtDs(t.due)}</span>${t.subtasks.length?` · ${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} subtasks`:''}</small></div><select class="mini" data-chg="taskStatus" data-id="${t.id}" aria-label="Status">${opts(STATUSES,t.status)}</select></div>`;}).join('');
+  const list=open.sort((a,b)=>a.due.localeCompare(b.due)).map(t=>{const p=t.projectId&&proj(t.projectId);return `<div class="li"><div class="grow"><button class="linkbtn" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button><small>${esc(taskPlace(t))} · <span class="${isOverdue(t)?'tag-bad':''}">due ${fmtDs(t.due)}</span>${t.subtasks.length?` · ${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} subtasks`:''}</small></div><select class="mini" data-chg="taskStatus" data-id="${t.id}" aria-label="Status">${opts(STATUSES,t.status)}</select></div>`;}).join('');
   const pRows=myP.map(p=>`<div class="li"><div class="grow"><button class="linkbtn" data-act="nav" data-to="project" data-id="${p.id}">${esc(p.name)}</button><small>${esc(client(p.clientId)?.name)} · ends ${fmtDs(p.end)}</small></div><div style="width:130px">${progRow(progress(p))}</div></div>`).join('');
-  const gItems=mine.filter(t=>t.status!=='Done'||t.completedOn>=addDays(TODAY,-14)).sort((a,b)=>a.start.localeCompare(b.start)).map(t=>({label:t.title,labelHtml:`<button class="linkbtn" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button>`,sub:t.projectId?esc(proj(t.projectId).code):'Internal',start:t.start,end:t.due,tone:t.status==='Done'?'muted':isOverdue(t)?'bad':'accent',progress:t.status==='Done'?100:t.subtasks.length?Math.round(t.subtasks.filter(s=>s.done).length/t.subtasks.length*100):t.status==='Review'?80:t.status==='In progress'?40:0}));
+  const gItems=mine.filter(t=>t.status!=='Done'||t.completedOn>=addDays(TODAY,-14)).sort((a,b)=>a.start.localeCompare(b.start)).map(t=>({label:t.title,labelHtml:`<button class="linkbtn" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button>`,sub:taskChip(t),start:t.start,end:t.due,tone:t.status==='Done'?'muted':isOverdue(t)?'bad':'accent',progress:t.status==='Done'?100:t.subtasks.length?Math.round(t.subtasks.filter(s=>s.done).length/t.subtasks.length*100):t.status==='Review'?80:t.status==='In progress'?40:0}));
   const lv=u.leave;
   return pageHead(`Hello, ${esc(u.name.split(' ')[0])}`,`${fmtD(TODAY)} · ${esc(desig(u.designationId)?.title||'')}`,`<button class="btn pri" data-act="newTask">${ico('plus')}Add task</button>`)+
   `<div class="kpis">${kpi('Open tasks',open.length)}${kpi('Due in 7 days',soon.length)}${kpi('Overdue',od.length,'',od.length?'bad':'good')}${kpi('Hours this week',hrs(h),`${fmtDs(wk.from)} – ${fmtDs(wk.to)}`)}</div>
@@ -897,23 +910,23 @@ function kanban(ts,showAllDone=false){
 }
 function taskCard(t){
   const a=emp(t.assignee),p=t.projectId?proj(t.projectId):null,od=isOverdue(t);const ed=canEditTask(t);
-  return `<article class="tcard prio-${t.priority.toLowerCase()}"><div class="tc-top"><span class="chip">${p?esc(p.code):'Internal'}</span><span class="prio">${esc(t.priority)}</span></div>
+  return `<article class="tcard prio-${t.priority.toLowerCase()}"><div class="tc-top"><span class="chip">${taskChip(t)}</span><span class="prio">${esc(t.priority)}</span></div>
   <button class="tc-title" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button>
   <div class="tc-meta"><span class="${od?'bad':''}">${od?'Overdue · ':'Due '}${fmtDs(t.due)}</span>${t.subtasks.length?`<span>${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} subtasks</span>`:''}<span>${hrs(logged(t.id))}/${t.estimate}h</span></div>
   <div class="tc-foot">${avatar(a,'sm')}<span class="tc-name">${esc(a?.name||'Unassigned')}</span>${ed?`<select class="mini" data-chg="taskStatus" data-id="${t.id}" aria-label="Status of ${esc(t.title)}">${opts(STATUSES,t.status)}</select>`:pill(t.status)}</div></article>`;
 }
 function pgTasks(){
   const u=U();let ts=visibleTasks();const fp=S.ui.tp||'',fa=S.ui.ta||'';
-  if(fp)ts=ts.filter(t=>fp==='internal'?!t.projectId:t.projectId===fp);if(fa)ts=ts.filter(t=>t.assignee===fa);
+  if(fp)ts=ts.filter(t=>fp==='internal'?!t.projectId&&!t.poc:fp==='poc'?isPoc(t):t.projectId===fp);if(fa)ts=ts.filter(t=>t.assignee===fa);
   const pl=visibleProjects();const people=u.role==='employee'||u.role==='accountant'?[]:scopeEmployees();
   const od=ts.filter(isOverdue).length;
   return pageHead(u.role==='admin'||u.role==='manager'?'Tasks':'My tasks',`${ts.filter(t=>t.status!=='Done').length} open · <span class="tag-bad">${od} overdue</span>`,`<button class="btn" data-act="dl" data-what="tasks" data-fmt="csv">${ico('download')}Excel (CSV)</button><button class="btn pri" data-act="newTask">${ico('plus')}Add task</button>`)+
-  `<div class="toolbar"><select data-chg="setui" data-key="tp" id="flt-proj" aria-label="Project"><option value="">All projects</option>${opts([...pl.map(p=>[p.id,p.name]),['internal','Internal (no project)']],fp)}</select>${people.length?`<select data-chg="setui" data-key="ta" id="flt-person" aria-label="Person"><option value="">Everyone</option>${opts(people.map(e=>[e.id,e.name]),fa)}</select>`:''}<span class="note">Done shows the last 3 weeks. Open a task to see subtasks, log hours and comment.</span></div>`+kanban(ts);
+  `<div class="toolbar"><select data-chg="setui" data-key="tp" id="flt-proj" aria-label="Project"><option value="">All projects</option>${opts([...pl.map(p=>[p.id,p.name]),['poc','POC tasks (before the project)'],['internal','Internal (no project)']],fp)}</select>${people.length?`<select data-chg="setui" data-key="ta" id="flt-person" aria-label="Person"><option value="">Everyone</option>${opts(people.map(e=>[e.id,e.name]),fa)}</select>`:''}<span class="note">Done shows the last 3 weeks. Open a task to see subtasks, log hours and comment.</span></div>`+kanban(ts);
 }
 function taskDrawer(id){
   const t=task(id);if(!t)return '';const ed=canEditTask(t);const p=t.projectId&&proj(t.projectId);const lg=logged(t.id);const mgr=canManage()&&ed;
   const logs=timeRows().filter(l=>l.t===t.id).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,6);
-  return `<div class="drawer" role="dialog" aria-modal="true" aria-label="Task"><div class="m-head"><div><div class="note">${p?esc(p.name)+' · '+p.code:'Internal task'}</div><h2>${esc(t.title)}</h2></div><button class="icon-btn" data-act="closeModal" aria-label="Close">×</button></div>
+  return `<div class="drawer" role="dialog" aria-modal="true" aria-label="Task"><div class="m-head"><div><div class="note">${p?esc(p.name)+' · '+p.code:t.poc?'POC – '+esc(t.poc.name)+' · moves into the project once confirmed':'Internal task'}</div><h2>${esc(t.title)}</h2></div><button class="icon-btn" data-act="closeModal" aria-label="Close">×</button></div>
   <div class="m-body">
    <div class="fgrid">
      <label class="fld"><span>Status</span><select data-chg="taskStatus" data-id="${t.id}" id="d-status" ${ed?'':'disabled'}>${opts(STATUSES,t.status)}</select></label>
@@ -941,7 +954,7 @@ function pgTimeline(){
   if(mode==='projects'){const items=visibleProjects().slice().sort((a,b)=>a.start.localeCompare(b.start)).map(p=>{const [h,t]=health(p);return{label:p.name,labelHtml:`<button class="linkbtn" data-act="nav" data-to="project" data-id="${p.id}">${esc(p.name)}</button>`,sub:esc(client(p.clientId)?.name)+' · '+h,start:p.start,end:p.end,tone:p.status==='Completed'?'muted':p.status==='Planning'?'info':t==='bad'?'bad':t==='warn'?'warn':'accent',progress:progress(p),markers:p.milestones.map(m=>({date:m.due,label:m.name,done:m.done}))};});
     body=panel('Projects',gantt(items,'2026-04-01','2027-03-31',`<div class="g-legend"><span><i style="background:var(--accent-soft);border-color:var(--accent)"></i>On track</span><span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Watch</span><span><i style="background:var(--bad-soft);border-color:var(--bad)"></i>At risk</span><span><i style="background:var(--info-soft);border-color:var(--info)"></i>Planning</span><span><i style="background:var(--sunken);border-color:var(--line-strong)"></i>Completed</span><span>◆ Milestone</span></div>`),{flush:true,sub:'Filled part of each bar = tasks done'});}
   else{let ts=visibleTasks().filter(t=>t.status!=='Done'||t.completedOn>=addDays(TODAY,-14));const fa=S.ui.tla||'';if(fa)ts=ts.filter(t=>t.assignee===fa);
-    const items=ts.sort((a,b)=>(a.assignee+a.start).localeCompare(b.assignee+b.start)).map(t=>({label:t.title,labelHtml:`<button class="linkbtn" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button>`,sub:esc(emp(t.assignee)?.name)+(t.projectId?' · '+proj(t.projectId).code:''),start:t.start,end:t.due,tone:t.status==='Done'?'muted':isOverdue(t)?'bad':'accent',progress:t.status==='Done'?100:t.status==='Review'?80:t.status==='In progress'?40:0}));
+    const items=ts.sort((a,b)=>(a.assignee+a.start).localeCompare(b.assignee+b.start)).map(t=>({label:t.title,labelHtml:`<button class="linkbtn" data-act="openTask" data-id="${t.id}">${esc(t.title)}</button>`,sub:esc(emp(t.assignee)?.name)+(t.projectId?' · '+proj(t.projectId).code:t.poc?' · POC':''),start:t.start,end:t.due,tone:t.status==='Done'?'muted':isOverdue(t)?'bad':'accent',progress:t.status==='Done'?100:t.status==='Review'?80:t.status==='In progress'?40:0}));
     const people=u.role==='employee'||u.role==='accountant'?[]:scopeEmployees();
     body=(people.length?`<div class="toolbar"><select data-chg="setui" data-key="tla" id="tl-person" aria-label="Person"><option value="">Everyone</option>${opts(people.map(e=>[e.id,e.name]),fa)}</select></div>`:'')+panel('Tasks',gantt(items,addDays(TODAY,-28),addDays(TODAY,42)),{flush:true,sub:'Red = overdue · grey = done'});}
   return pageHead('Timeline',mode==='projects'?'All project dates and milestones':'Task schedule, four weeks back to six weeks ahead','')+(canP?seg('tlm',[['projects','Projects'],['tasks','Tasks']],mode):'')+body;
@@ -1177,7 +1190,7 @@ function dealCard(x){const late=dealLate(x);
   ${x.eventId&&evById(x.eventId)?`<div class="tc-meta"><span class="chip">${esc(evById(x.eventId).name)}</span></div>`:''}${(DB.estimates||[]).filter(q=>q.pipelineId===x.id).map(q=>{const c=estCalc(q);return `<div class="tc-meta"><button class="linkbtn" style="font-size:12px;font-weight:500" data-act="nav" data-to="estimate" data-id="${q.id}">Estimate ${inr(c.price)} · ${pct(c.margin)} margin</button></div>`;}).join('')}
   ${x.timeline?`<div class="tc-meta"><span class="${late?'bad':''}">${late?'Date passed · ':''}${esc(x.timeline)}</span></div>`:''}
   <div class="tc-foot"><span class="tc-name">POC: ${esc(x.poc||'—')}</span><select class="mini" data-chg="dealStage" data-id="${x.id}" aria-label="Stage of ${esc(x.client)}">${opts(STAGES,x.stage)}</select></div>
-  ${WON_STAGES.includes(x.stage)?payBar(x):''}
+  ${WON_STAGES.includes(x.stage)?payBar(x):''}${pocCardLine(x)}
   ${WON_STAGES.includes(x.stage)&&x.value?(x.projectId&&proj(x.projectId)?`<button class="btn sm" data-act="nav" data-to="project" data-id="${x.projectId}" data-key="ptab" data-val="finance">View project</button>`:`<button class="btn sm pri" data-act="dealToProject" data-id="${x.id}">Create project</button>`):''}</article>`;}
 function pipelineList(){const q=(S.ui.pq||'').toLowerCase(),fs=S.ui.ps||'',fr=S.ui.pr||'',fp=S.ui.pp||'';
   return (DB.pipeline||[]).filter(x=>(!q||(x.client+' '+(x.work||'')+' '+x.status+' '+x.comments).toLowerCase().includes(q))&&(!fs||x.stage===fs)&&(!fr||x.region===fr)&&(!fp||x.poc===fp));}
@@ -1642,7 +1655,7 @@ const A={
     <div class="fld full"><span style="font-size:12px;font-weight:600;color:var(--muted)">Assign team (only the manager and these people will see the project)</span><div class="checks">${activeStaff().map(e=>`<label class="check"><input type="checkbox" name="team" value="${e.id}"><span>${esc(e.name)}</span></label>`).join('')}</div></div>
     ${termsBlock(value,qx?.terms||'40-30-30',termRows(qx?.terms||'40-30-30',start,end))}`,x||q?'Create project':'Add project',true);},
   newTask(d){const pl=visibleProjects().filter(p=>p.status!=='Completed');const people=canManage()?(isAdmin()?activeStaff():scopeEmployees()):[U()];
-    formModal('Add task','task',`${fld('Task','title','','text','required')}${sel('Project','projectId',[['','Internal (no project)'],...pl.map(p=>[p.id,p.name])],d.pid||'')}${sel('Assign to','assignee',people.map(e=>[e.id,e.name]),people.some(e=>e.id===U().id)&&!canManage()?U().id:people[0]?.id)}${sel('Priority','priority',['High','Medium','Low'],'Medium')}${fld('Start','start',TODAY,'date','required')}${fld('Due','due',addDays(TODAY,7),'date','required')}${fld('Estimate (hours)','estimate',8,'number','min="1"')}<span></span>${area('Description','description','')}${area('Subtasks (one per line)','subtasks','')}`,'Add task');},
+    formModal('Add task','task',`${fld('Task','title','','text','required')}${sel('Project / POC','projectId',[['','Internal (no project)'],...pl.map(p=>[p.id,p.name]),...(isAdmin()?pocDeals().map(x=>['poc:'+x.id,'POC – '+pocName(x)]):[])],d.pid||(d.deal?'poc:'+d.deal:''))}${sel('Assign to','assignee',people.map(e=>[e.id,e.name]),people.some(e=>e.id===U().id)&&!canManage()?U().id:people[0]?.id)}${sel('Priority','priority',['High','Medium','Low'],'Medium')}${fld('Start','start',TODAY,'date','required')}${fld('Due','due',addDays(TODAY,7),'date','required')}${fld('Estimate (hours)','estimate',8,'number','min="1"')}<span></span>${area('Description','description','')}${area('Subtasks (one per line)','subtasks','')}`,'Add task');},
   newEmployee(){empFormModal(null);},
   editEmployee(d){empFormModal(emp(d.id));},
   editDesig(d){const g=d.id?desig(d.id):{title:'',dept:C().departments[0],summary:'',resp:[],skills:[]};formModal(d.id?'Edit '+g.title:'Add role','desig',(d.id&&!staff().some(e=>e.designationId===d.id)?`<p class="fld full"><button type="button" class="btn sm danger" data-act="delDesig" data-id="${d.id}">Delete this role</button></p>`:'')+`${fld('Designation','title',g.title,'text','required')}${sel('Department','dept',C().departments,g.dept)}${area('Summary','summary',g.summary,'required')}<label class="fld full"><span>Key responsibilities (one per line)</span><textarea name="resp" id="f-resp" rows="6">${esc(g.resp.join('\n'))}</textarea></label>${fld('Skills (comma separated)','skills',g.skills.join(', '))}`,'Save role',true,d.id?`data-id="${d.id}"`:'');},
@@ -1734,6 +1747,7 @@ const A={
   editDeal(d){dealModal(d.id);},
   delDeal(d,el){if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Click again to delete';return;}DB.pipeline=DB.pipeline.filter(x=>x.id!==d.id);closeModal();refresh();toast('Entry deleted');},
   dealToProject(d){A.newProject({deal:d.id});},
+  pocTasks(d){S.route='tasks';S.ui.tp='poc';S.ui.ta='';render();window.scrollTo(0,0);},
   valueInProject(d){closeModal();A.nav({to:'project',id:d.pid,key:'ptab',val:'finance'});A.editTerms({pid:d.pid});},
   valUseProj(d){const x=DB.pipeline.find(k=>k.id===d.id);const p=dealProj(x);if(!p)return;pushValue(p);refresh();toast(`${x.client}: pipeline now shows ${inr(x.value)}.`);},
   valUseProjAll(){let n=0;valueMismatches().forEach(({p})=>{if(pushValue(p))n++;});refresh();toast(`${n} pipeline entr${n>1?'ies':'y'} now match their projects.`);},
@@ -1801,15 +1815,16 @@ const F={
     const rows=readTerms(f);if(Math.abs(sum(rows,r=>r[1])-100)>0.01){toast('Payment stage percentages must add up to 100%.');return;}
     let cid=fd.get('clientId');if(cid==='__new'){const n=String(fd.get('newClient')).trim();if(!n){toast('Type the new client’s name.');return;}const ex=DB.clients.find(c=>c.name.toLowerCase()===n.toLowerCase());if(ex)cid=ex.id;else{cid=uid('C');DB.clients.push({id:cid,name:n,contact:'',email:'',phone:''});}}
     const value=+fd.get('value')||0;const p={id:uid('P'),code:'M911-P'+String(DB.projects.length+1).padStart(2,'0'),name:String(fd.get('name')).trim(),clientId:cid,managerId:fd.get('managerId'),team:fd.getAll('team'),start,end,status:fd.get('status'),priority:fd.get('priority'),value,terms:fd.get('terms'),eventId:fd.get('eventId')||null,estimateId:fd.get('estimateId')||null,description:fd.get('description'),milestones:[],receipts:[],schedule:buildSchedule(rows,value)};
-    DB.projects.push(p);const dl=fd.get('deal');if(dl){const x=DB.pipeline.find(k=>k.id===dl);if(x){x.projectId=p.id;syncPaid(p);pushValue(p);}}if(p.estimateId){const q=estById(p.estimateId);if(q){q.projectId=p.id;q.status='Won';}}
-    closeModal();syncAll();save();A.nav({to:'project',id:p.id,key:'ptab',val:'finance'});toast(`Project created with ${rows.length} payment stage${rows.length>1?'s':''}${p.team.length?'':'. Assign a team so they can see it.'}`);},
+    DB.projects.push(p);const dl=fd.get('deal');let pocN=0;if(dl){const x=DB.pipeline.find(k=>k.id===dl);if(x){x.projectId=p.id;syncPaid(p);pushValue(p);pocN=pocToProject(x,p);}}if(p.estimateId){const q=estById(p.estimateId);if(q){q.projectId=p.id;q.status='Won';}}
+    closeModal();syncAll();save();A.nav({to:'project',id:p.id,key:'ptab',val:'finance'});toast(`Project created with ${rows.length} payment stage${rows.length>1?'s':''}${pocN?` and ${pocN} POC task${pocN>1?'s':''} moved in`:''}${p.team.length?'':'. Assign a team so they can see it.'}`);},
   termsEdit(fd,f){const p=proj(f.dataset.pid);const rows=readTerms(f);if(Math.abs(sum(rows,r=>r[1])-100)>0.01){toast('Payment stage percentages must add up to 100%.');return;}const value=+fd.get('value')||0;
     const old=p.schedule.slice().sort((a,b)=>a.due.localeCompare(b.due));p.schedule=buildSchedule(rows,value,old);p.terms=fd.get('terms');syncPaid(p);const pv=pushValue(p);closeModal();refresh();toast('Payment terms updated. Received payments were re-applied.'+(pv?' The pipeline entry now shows the new value.':''));},
   receipt(fd,f){const p=proj(f.dataset.pid);const amt=+fd.get('amount');if(!(amt>0)){toast('Enter the amount received.');return;}const before=projFin(p).bal;
     (DB.pipeline||[]).forEach(x=>{if(x.projectId===p.id&&x.source!=='PO')x.source='Advance';});p.receipts.push({id:uid('R'),date:fd.get('date'),amount:amt,mode:fd.get('mode'),ref:String(fd.get('ref')).trim(),note:String(fd.get('note')).trim()});closeModal();refresh();const after=projFin(p).bal;
     toast(amt>before?`Saved. This is ${inr(amt-before)} more than the balance – check the amount.`:`${inr(amt)} recorded. Balance now ${inr(after)}.`);},
   task(fd){if(fd.get('due')<fd.get('start')){toast('Due date must be on or after the start date.');return;}const id=uid('T');const subs=String(fd.get('subtasks')).split('\n').map(s=>s.trim()).filter(Boolean);
-    DB.tasks.push({id,projectId:fd.get('projectId')||null,title:fd.get('title'),assignee:fd.get('assignee'),status:'To do',priority:fd.get('priority'),start:fd.get('start'),due:fd.get('due'),estimate:+fd.get('estimate')||1,description:fd.get('description'),subtasks:subs.map((s,i)=>({id:id+'s'+i,title:s,done:false})),completedOn:null,comments:[]});closeModal();refresh();toast('Task added');},
+    const pv=String(fd.get('projectId')||'');const dx=pv.startsWith('poc:')&&(DB.pipeline||[]).find(x=>x.id===pv.slice(4));
+    DB.tasks.push({id,projectId:pv&&!pv.startsWith('poc:')?pv:null,...(dx?{poc:{dealId:dx.id,name:pocName(dx)}}:{}),title:fd.get('title'),assignee:fd.get('assignee'),status:'To do',priority:fd.get('priority'),start:fd.get('start'),due:fd.get('due'),estimate:+fd.get('estimate')||1,description:fd.get('description'),subtasks:subs.map((s,i)=>({id:id+'s'+i,title:s,done:false})),completedOn:null,comments:[]});closeModal();refresh();toast(dx?`POC task added for ${dx.client}. It moves into the project when you create it.`:'Task added');},
   subtask(fd,f){const t=task(f.dataset.tid);t.subtasks.push({id:uid('s'),title:fd.get('title'),done:false});refresh();const i=$('#st-title');if(i)i.focus();},
   comment(fd,f){task(f.dataset.tid).comments.push({emp:U().id,date:TODAY,text:fd.get('text')});refresh();},
   logtime(fd,f){DB.logs.push({id:uid('LG'),e:U().id,t:f.dataset.tid,d:fd.get('d'),h:+fd.get('h')});refresh();toast(`${fd.get('h')}h logged`);},
@@ -1840,13 +1855,14 @@ const tmin=t=>{const [h,m]=String(t||'0:0').split(':').map(Number);return (h||0)
 const slotLen=s=>Math.max(0,(tmin(s.to)-tmin(s.from))/60);
 const t12=t=>{const m=tmin(t),h=Math.floor(m/60),mm=m%60;const h12=h%12||12;return h12+(mm?':'+z2(mm):'')+(h<12?' am':' pm');};
 const slotLabel=s=>`${t12(s.from)} – ${t12(s.to)}`;
-const tsWhat=p=>{if(!p)return '';if(p[0]==='@')return (TS_ACT.find(a=>a[0]===p)||[p,'Other work'])[1];const x=proj(p);return x?x.name:'(deleted project)';};
+const tsWhat=p=>{if(!p)return '';if(p.startsWith('@poc:')){const t=task(p.slice(5));return t?(t.projectId&&proj(t.projectId)?proj(t.projectId).name:'POC – '+(t.poc?t.poc.name:t.title)):'POC work';}if(p[0]==='@')return (TS_ACT.find(a=>a[0]===p)||[p,'Other work'])[1];const x=proj(p);return x?x.name:'(deleted project)';};
 const tsId=(e,d)=>`TS-${e}-${d}`;
 const tsRec=(e,d)=>(DB.timesheets||[]).find(r=>r.e===e&&r.d===d);
 const tsStart=()=>tsCfg().start||TS_DEFAULT.start;
 const tsDayLen=()=>sum(tsCfg().slots,slotLen);
 function tsLinesOf(r){const out=[];(r.slots||[]).forEach((s,i)=>(s.lines||[]).forEach((l,j)=>out.push({p:l.p||'',t:l.t||'',h:+l.h||0,w:l.w||'',si:i,li:j,s:s.from?slotLabel(s):'',e:r.e,d:r.d})));return out;}
-function tsAll(){return (DB.timesheets||[]).flatMap(tsLinesOf).filter(l=>l.p&&l.h>0);}
+const tsResolve=l=>{if(!l.p.startsWith('@poc:'))return l;const t=task(l.p.slice(5));return {...l,t:l.t||(t?t.id:''),p:t&&t.projectId?t.projectId:l.p};};
+function tsAll(){return (DB.timesheets||[]).flatMap(tsLinesOf).filter(l=>l.p&&l.h>0).map(tsResolve);}
 const tsWork=l=>!TS_OFF.has(l.p);
 // every hour of work, from timesheets and from older "log time" entries on tasks
 function timeRows(){const ts=tsAll().filter(tsWork).map(l=>({...l,src:'ts'}));
@@ -1903,7 +1919,7 @@ function tsDayView(){
       const pList=myProj.filter(x=>x.status!=='Completed'||x.id===l.p);if(isP&&!pList.some(x=>x.id===l.p)&&proj(l.p))pList.push(proj(l.p));
       const tList=isP?DB.tasks.filter(t=>t.projectId===l.p&&(t.status!=='Done'||t.id===l.t||(t.completedOn||'')>=addDays(d,-14))).sort((a,b)=>(b.assignee===who)-(a.assignee===who)||a.title.localeCompare(b.title)):[];
       return `<div class="ts-line"><div class="ts-lh">
-        <select class="inp ts-p" data-chg="tsP" data-si="${si}" data-li="${li}" id="tsp-${k}" aria-label="Project or activity"><option value="">Choose project or activity…</option>${pList.length?`<optgroup label="Projects">${opts(pList.map(x=>[x.id,x.name]),l.p)}</optgroup>`:''}<optgroup label="Other work">${opts(TS_ACT.filter(a=>a[2]==='work'),l.p)}</optgroup><optgroup label="Away / time lost">${opts(TS_ACT.filter(a=>a[2]==='away'),l.p)}</optgroup></select>
+        <select class="inp ts-p" data-chg="tsP" data-si="${si}" data-li="${li}" id="tsp-${k}" aria-label="Project or activity"><option value="">Choose project or activity…</option>${pList.length?`<optgroup label="Projects">${opts(pList.map(x=>[x.id,x.name]),l.p)}</optgroup>`:''}${(pocL=>pocL.length?`<optgroup label="POC work">${opts(pocL,l.p)}</optgroup>`:'')(DB.tasks.filter(t=>(isPoc(t)&&t.assignee===who&&t.status!=='Done')||'@poc:'+t.id===l.p).map(t=>['@poc:'+t.id,taskPlace(t)+' · '+t.title]))}<optgroup label="Other work">${opts(TS_ACT.filter(a=>a[2]==='work'),l.p)}</optgroup><optgroup label="Away / time lost">${opts(TS_ACT.filter(a=>a[2]==='away'),l.p)}</optgroup></select>
         ${lines.length>1||len!==+l.h?`<select class="inp ts-h" data-chg="tsH" data-si="${si}" data-li="${li}" id="tsh-${k}" aria-label="Hours">${opts(tsHourOpts(len),String(+l.h||0))}</select>`:`<span class="chip">${hrs(len)} h</span>`}
         ${lines.length>1?`<button class="icon-btn" data-act="tsDelLine" data-si="${si}" data-li="${li}" aria-label="Remove this line" title="Remove">×</button>`:''}</div>
         ${tList.length?`<select class="inp ts-t" data-chg="tsT" data-si="${si}" data-li="${li}" id="tst-${k}" aria-label="Task"><option value="">Task (optional)</option>${opts(tList.map(t=>[t.id,t.title+(t.assignee!==who?' · '+(emp(t.assignee)?.name||'').split(' ')[0]:'')]),l.t)}</select>`:''}
@@ -1947,7 +1963,7 @@ function tsSummaryView(){
   const {r,lines,work,byP,byE,fe,people}=tsSummaryData();const admin=isAdmin();const tot=sum(work,l=>l.h),ph=sum(work.filter(l=>l.p[0]!=='@'),l=>l.h);
   const tb=`<div class="toolbar">${seg('tsrp',[['week','Week'],['month','Month']],r.p)}<button class="btn sm" data-act="setui" data-key="tsrd" data-val="${r.prev}" aria-label="Previous">‹</button><b>${r.label}</b><button class="btn sm" data-act="setui" data-key="tsrd" data-val="${r.next}" aria-label="Next">›</button>${people.length>1?`<select data-chg="setui" data-key="tsrf" id="tsr-person" aria-label="Person"><option value="">Everyone</option>${opts(people.map(e=>[e.id,e.name]),fe)}</select>`:''}</div>`;
   const aw=sum(byP.filter(x=>x.away),x=>x.h);
-  const pRows=byP.map(x=>[x.isP?`<button class="linkbtn" data-act="nav" data-to="project" data-id="${x.k}">${esc(x.name)}</button>`:`<span class="muted">${esc(x.name)}</span>${x.away?' <span class="pill">away</span>':''}`,`<span class="num"><b>${hrs(x.h)}</b></span>`,x.away?'<span class="num muted">—</span>':`<span class="num">${tot?Math.round(x.h/tot*100):0}%</span>`,`<span class="note">${x.ppl.map(y=>`${esc((y.e?.name||'?').split(' ')[0])} ${hrs(y.h)}h`).join(' · ')}</span>`,...(admin?[x.isP?inr(x.cost):'']:[])]);
+  const pRows=byP.map(x=>[x.isP?`<button class="linkbtn" data-act="nav" data-to="project" data-id="${x.k}">${esc(x.name)}</button>`:`<span class="muted">${esc(x.name)}</span>${x.away?' <span class="pill">away</span>':''}`,`<span class="num"><b>${hrs(x.h)}</b></span>`,x.away?'<span class="num muted">—</span>':`<span class="num">${tot?Math.round(x.h/tot*100):0}%</span>`,`<span class="note">${x.ppl.map(y=>`${esc((y.e?.name||'?').split(' ')[0])} ${hrs(y.h)}h`).join(' · ')}</span>`,...(admin?[x.isP||x.k.startsWith('@poc:')?inr(x.cost):'']:[])]);
   const eRows=byE.map(x=>[person(x.e,esc(desig(x.e.designationId)?.title)),`<span class="num">${x.filled} / ${x.exp}</span>`,x.miss?`<span class="num tag-bad">${x.miss}</span>`:'<span class="num">0</span>',`<span class="num"><b>${hrs(x.h)}</b></span>`,`<span class="num">${hrs(x.ph)}</span>`,`<span class="num">${hrs(x.oh)}</span>`,`<span class="num ${x.aw?'tag-bad':''}">${hrs(x.aw)}</span>`,`<div class="prog-row"><div class="prog"><i style="width:${Math.min(100,x.util)}%;${x.util<60?'background:var(--warn)':''}"></i></div><span>${x.util}%</span></div>`]);
   const shown=lines.slice(-150).reverse();
   const eList=shown.map(l=>[`<span class="nowrap">${fmtDs(l.d)}</span><div class="note">${esc(l.s)}</div>`,esc(emp(l.e)?.name||''),`${l.p[0]==='@'?`<span class="muted">${esc(tsWhat(l.p))}</span>`:esc(tsWhat(l.p))}${l.t&&task(l.t)?`<div class="note">${esc(task(l.t).title)}</div>`:''}`,`<span class="num">${hrs(l.h)}</span>`,esc(l.w)]);
@@ -2057,7 +2073,7 @@ function exportData(what,fmt,id){
     doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(27,32,29);doc.text(`Tasks completed: ${sum(rows,x=>x.done.length)}     Hours logged: ${hrs(sum(rows,x=>x.h))}     Overdue tasks now: ${sum(rows,x=>x.od)}`,40,y);y+=18;
     y=pdfSection(doc,y,'People');y=pdfTable(doc,y,head.map((h,i)=>({h,w:i<2?2.2:1,r:i>=2})),body);
     y=pdfSection(doc,y,'Projects');y=pdfTable(doc,y,[{h:'Project',w:2.6},{h:'Client',w:1.8},{h:'Status',w:1},{h:'Progress %',w:1,r:1},{h:'Health',w:1},{h:'Done in period',w:1,r:1},{h:'Hours',w:1,r:1},{h:'Overdue',w:1,r:1}],projs.map(x=>[x.p.name,client(x.p.clientId)?.name,x.p.status,x.prog,x.health[0],x.done,hrs(x.h),x.od]));
-    const done=rows.flatMap(x=>x.done.map(t=>[fmtD(t.completedOn),t.title,x.e.name,t.projectId?proj(t.projectId).name:'Internal']));
+    const done=rows.flatMap(x=>x.done.map(t=>[fmtD(t.completedOn),t.title,x.e.name,taskPlace(t)]));
     if(done.length){y=pdfSection(doc,y,'Completed in this period');pdfTable(doc,y,[{h:'Date',w:1},{h:'Task',w:3},{h:'Person',w:1.5},{h:'Project',w:2}],done);}
     return savePdf(doc,`Team-${per}-report-${r.from}.pdf`);}
   if(what==='projects'){const fin=canFinance();const head=['Code','Project','Client','Manager','Start','End','Status','Progress %','Health',...(fin?['Value','Collected','Balance']:[])];
@@ -2065,7 +2081,7 @@ function exportData(what,fmt,id){
     if(fmt==='csv')return saveCsv(`Projects-${stamp}.csv`,head,body);
     return tableReport(`Projects-${stamp}.pdf`,'Project status',`As of ${fmtD(TODAY)}`,head.map((h,i)=>({h,w:i===1?2.4:i===2?1.6:1,r:i>=7&&i!==8})),body.map(r=>r.map((v,i)=>i>=9?inrP(v):i===4||i===5?fmtD(v):v)),null,'l');}
   if(what==='tasks'){const head=['Task','Project','Assigned to','Status','Priority','Start','Due','Overdue','Estimate h','Logged h','Subtasks done'];
-    return saveCsv(`Tasks-${stamp}.csv`,head,visibleTasks().map(t=>[t.title,t.projectId?proj(t.projectId).name:'Internal',emp(t.assignee)?.name,t.status,t.priority,t.start,t.due,isOverdue(t)?'Yes':'No',t.estimate,hrs(logged(t.id)),`${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length}`]));}
+    return saveCsv(`Tasks-${stamp}.csv`,head,visibleTasks().map(t=>[t.title,taskPlace(t),emp(t.assignee)?.name,t.status,t.priority,t.start,t.due,isOverdue(t)?'Yes':'No',t.estimate,hrs(logged(t.id)),`${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length}`]));}
   if(what==='employees')return saveCsv(`Employees-${stamp}.csv`,['Code','Name','Email','Phone','Designation','Department','Reports to','Login','Joined','Status','Monthly gross'],staff().map(e=>[e.code,e.name,e.email,e.phone,desig(e.designationId)?.title,e.dept,emp(e.managerId)?.name||'',ROLES[e.role],e.joinDate,e.status,e.salary.basic+e.salary.hra+e.salary.special+e.salary.other]));
   if(what==='leave')return saveCsv(`Leave-balances-${stamp}.csv`,['Name','Casual','Sick','Earned'],scopeEmployees().map(e=>[e.name,e.leave.cl,e.leave.sl,e.leave.el]));
   if(what==='jds'){const doc=pdfDoc();let y=pdfHeader(doc,'Roles and job descriptions',`${DB.designations.length} roles`);const W=doc.internal.pageSize.getWidth();
